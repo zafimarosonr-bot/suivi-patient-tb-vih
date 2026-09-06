@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Arrêter Suivi Patient
+Comment=Arrêter le serveur de l'application de suivi patient
+Exec=python3 /home/berthin/Bureau/09_SUIVI_VIH/2026-07/stop_server.py
+Icon=application-exit
+Terminal=true
+StartupNotify=false
+Categories=Utility;

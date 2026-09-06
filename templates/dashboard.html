@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Suivi Patient{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+{% block topbar_sub %}Vue d'ensemble du registre{% endblock %}
+
+{% block topbar_action %}
+<a href="{{ rapport_url }}" class="btn btn-ghost">
+  <svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><use href="#icon-report"/></svg>
+  Voir le rapport de {{ rapport_mois }}
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+/* ── VIH Confidentiality (même règle que /patients) ── */
+.vih-masked { filter: blur(4px); user-select: none; cursor: pointer; transition: filter .3s ease; }
+.vih-masked.revealed { filter: none; }
+.vih-reveal-btn {
+  background: var(--violet-light); color: var(--violet); border: 1px solid rgba(175,82,222,0.2);
+  border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+  transition: all .15s ease;
+}
+.vih-reveal-btn:hover { background: rgba(175,82,222,0.15); }
+.vih-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.vih-overlay.open { display: flex; }
+.vih-overlay-box {
+  background: var(--surface); border-radius: 14px; padding: 24px; max-width: 380px; width: 90%;
+  box-shadow: 0 8px 40px rgba(0,0,0,.15);
+}
+</style>
+
+<!-- ── Cartes cliquables ───────────────────── -->
+<div class="stat-grid">
+  <a class="stat" href="/patients" style="text-decoration:none; display:block;">
+    <div class="label">Patients actifs</div>
+    <div class="value">{{ stats.actifs }}</div>
+  </a>
+  <a class="stat" href="/patients?programme=TB" style="text-decoration:none; display:block;">
+    <div class="label">TB en cours</div>
+    <div class="value" style="color: var(--blue)">{{ stats.tb }}</div>
+  </a>
+  <a class="stat" href="/patients?programme=VIH" style="text-decoration:none; display:block;">
+    <div class="label">VIH suivis</div>
+    <div class="value" style="color: var(--violet)">{{ stats.vih }}</div>
+  </a>
+  <div class="stat" style="cursor:pointer;" onclick="document.getElementById('sectionOverdue').scrollIntoView({behavior:'smooth'})">
+    <div class="label">Contrôles en retard</div>
+    <div class="value" style="color: var(--red)">{{ stats.overdue }}</div>
+  </div>
+</div>
+
+<!-- ── Contrôles TB en retard (urgent, déplié) ── -->
+<div class="rappel-section danger" id="sectionOverdue" {% if not overdue %}style="display:none"{% endif %}>
+  <h3>
+    <svg class="icon" style="width:18px;height:18px;color:var(--red);"><use href="#icon-alert-triangle"/></svg> Contrôles TB en retard
+    <span class="count-pill">{{ overdue|length }}</span>
+  </h3>
+  {% for c in overdue %}
+  <div class="rappel-row">
+    <div class="left" onclick="window.location.href='/patient/{{ c.patient_id }}'">
+      <b {% if c.has_vih %}class="vih-masked"{% endif %}>{{ c.nom }} {{ c.prenoms }}</b>
+      {% if c.has_vih and session.get('role') != 'readonly' %}
+      <button type="button" class="vih-reveal-btn" onclick="event.stopPropagation(); openVihOverlay();"><svg class="icon" style="width:10px;height:10px;"><use href="#icon-eye"/></svg></button>
+      {% endif %}
+      <span>{% if c.tb_registre %}{{ c.tb_registre }}{% else %}{{ c.patient_id }}{% endif %} · Contrôle {{ c.controle }}</span>
+    </div>
+    <div class="right">
+      <span class="date-tag">{{ c.date_prevue|date_fr }}</span>
+      <span class="badge decede">En retard</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="rappel-section danger" {% if overdue %}style="display:none"{% endif %}>
+  <div class="empty-state" style="padding: 20px;">
+    <div class="big"><svg class="icon" style="width:32px;height:32px;color:var(--green);"><use href="#icon-circle-check"/></svg></div>
+    <div>Aucun contrôle TB en retard. Tout est à jour.</div>
+  </div>
+</div>
+
+<!-- ── Échéances des 7 prochains jours (repliées) ── -->
+<div class="rappel-section" {% if not upcoming %}style="display:none"{% endif %}>
+  <h3>
+    <svg class="icon" style="width:18px;height:18px;color:var(--teal);"><use href="#icon-calendar"/></svg> Échéances des 7 prochains jours
+    <span class="count-pill">{{ upcoming|length }}</span>
+  </h3>
+  <div id="upcomingBody" style="display:none;">
+    {% for c in upcoming %}
+    <div class="rappel-row">
+      <div class="left" onclick="window.location.href='/patient/{{ c.patient_id }}'">
+        <b {% if c.has_vih %}class="vih-masked"{% endif %}>{{ c.nom }} {{ c.prenoms }}</b>
+        {% if c.has_vih and session.get('role') != 'readonly' %}
+        <button type="button" class="vih-reveal-btn" onclick="event.stopPropagation(); openVihOverlay();"><svg class="icon" style="width:10px;height:10px;"><use href="#icon-eye"/></svg></button>
+        {% endif %}
+        <span>{% if c.tb_registre %}{{ c.tb_registre }}{% else %}{{ c.patient_id }}{% endif %} · Contrôle {{ c.controle }}</span>
+      </div>
+      <div class="right">
+        <span class="date-tag">{{ c.date_prevue|date_fr }}</span>
+        <span class="badge encours">Programmé</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="padding: 4px 16px 14px;">
+    <a href="javascript:void(0)" id="upcomingToggleLink" onclick="toggleUpcoming()" style="font-size:12.5px; color:var(--blue); font-weight:500;">Afficher les échéances ({{ upcoming|length }})</a>
+  </div>
+</div>
+
+<!-- ── Aucune alerte ────────────────────── -->
+{% if not overdue and not upcoming %}
+<div class="rappel-section">
+  <div class="empty-state" style="padding: 30px;">
+    <div class="big"><svg class="icon" style="width:32px;height:32px;color:var(--green);"><use href="#icon-circle-check"/></svg></div>
+    <div>Tout est à jour — aucun contrôle en attente.</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Overlay confidentialité VIH ───────── -->
+<div class="vih-overlay" id="vihOverlay">
+  <div class="vih-overlay-box">
+    <h3 style="margin:0 0 8px; font-size:16px; color:var(--text);">Confidentialité VIH</h3>
+    <p style="font-size:12px; color:var(--text-secondary); margin:0 0 14px;">Saisissez votre mot de passe pour afficher les noms des patients VIH.</p>
+    <div class="field" style="margin-bottom:14px;">
+      <input type="password" id="vihPasswordInput" placeholder="Mot de passe" autocomplete="current-password"
+             style="width:100%; padding:10px 12px; border-radius:10px; border:0.5px solid var(--border); font-size:14px;">
+      <div id="vihPasswordError" style="font-size:11px; color:var(--red); margin-top:4px; display:none;">Mot de passe incorrect.</div>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button type="button" class="btn btn-ghost" onclick="closeVihOverlay()">Annuler</button>
+      <button type="button" class="btn btn-primary" onclick="verifyVihPassword()">Afficher</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Échéances repliées ─────────────────────
+function toggleUpcoming() {
+  const body = document.getElementById('upcomingBody');
+  const link = document.getElementById('upcomingToggleLink');
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  link.textContent = hidden
+    ? 'Masquer les échéances'
+    : 'Afficher les échéances (' + document.querySelectorAll('#upcomingBody .rappel-row').length + ')';
+}
+
+// ── VIH Confidentiality (même règle que /patients) ──
+let vihRevealed = false;
+
+function openVihOverlay() {
+  document.getElementById('vihOverlay').classList.add('open');
+  document.getElementById('vihPasswordInput').value = '';
+  document.getElementById('vihPasswordError').style.display = 'none';
+  document.getElementById('vihPasswordInput').focus();
+}
+
+function closeVihOverlay() {
+  document.getElementById('vihOverlay').classList.remove('open');
+}
+
+async function verifyVihPassword() {
+  const password = document.getElementById('vihPasswordInput').value;
+  if (!password) return;
+
+  try {
+    const resp = await fetch('/api/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password })
+    });
+    const data = await resp.json();
+
+    if (data.valid) {
+      vihRevealed = true;
+      closeVihOverlay();
+      // Reveal all masked names
+      document.querySelectorAll('.vih-masked').forEach(el => el.classList.add('revealed'));
+    } else {
+      document.getElementById('vihPasswordError').style.display = 'block';
+      document.getElementById('vihPasswordInput').value = '';
+      document.getElementById('vihPasswordInput').focus();
+    }
+  } catch (err) {
+    document.getElementById('vihPasswordError').textContent = 'Erreur de connexion.';
+    document.getElementById('vihPasswordError').style.display = 'block';
+  }
+}
+
+// Close overlay on click outside
+document.getElementById('vihOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'vihOverlay') closeVihOverlay();
+});
+
+// Handle Enter/Escape in password input
+document.getElementById('vihPasswordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') verifyVihPassword();
+  if (e.key === 'Escape') closeVihOverlay();
+});
+</script>
+{% endblock %}

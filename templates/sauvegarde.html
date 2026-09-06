@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Sauvegarde — Suivi Patient{% endblock %}
+{% block topbar_title %}Sauvegarde{% endblock %}
+{% block topbar_sub %}Export et import des données{% endblock %}
+
+{% block content %}
+<!-- ── État de la base ─────────────────────── -->
+<div class="panel" style="margin-bottom:24px;">
+  <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--blue);"><use href="#icon-chart-bar"/></svg> État de la base de données
+    <span class="badge encours" style="font-size:11px;">SQLite</span>
+  </h3>
+  <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:0;">
+    <div class="stat">
+      <div class="label">Patients</div>
+      <div class="value">{{ stats.patients }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Suivis TB</div>
+      <div class="value" style="color:var(--blue);">{{ stats.suivi_tb }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Suivis VIH</div>
+      <div class="value" style="color:var(--violet);">{{ stats.suivi_vih }}</div>
+    </div>
+  </div>
+  <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-top:12px; margin-bottom:0;">
+    <div class="stat">
+      <div class="label">Historique statuts</div>
+      <div class="value">{{ stats.historique }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Journal audit</div>
+      <div class="value">{{ stats.audit }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Utilisateurs</div>
+      <div class="value">{{ stats.users }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Export ──────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="panels" style="margin-bottom:24px;">
+  <!-- Export CSV -->
+  <div class="panel">
+    <h3 style="margin:0 0 4px; display:flex; align-items:center; gap:8px;">
+      <svg class="icon" style="width:18px;height:18px;color:var(--blue);"><use href="#icon-file-text"/></svg> Export CSV
+      <span class="badge encours" style="font-size:11px;">Tableau</span>
+    </h3>
+    <p style="margin:0 0 16px; font-size:12px; color:var(--muted);">
+      Liste des patients au format CSV (séparateur « ; »), compatible avec Excel et les anciens fichiers de suivi.
+    </p>
+    <div class="backup-card">
+      <div class="info">
+        <b>suivi_patients_YYYY-MM-DD.csv</b>
+        <span>Identifiant, Nom, Âge, Statut, Programme, Contrôles…</span>
+      </div>
+      {% if session.get('role') in ['admin', 'user'] %}
+    <a href="/sauvegarde/export-csv" class="btn btn-primary" download><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-download"/></svg> Télécharger</a>
+    {% else %}
+    <span class="badge encours" style="font-size:12px; padding:6px 12px;"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-eye"/></svg> Lecture seule</span>
+    {% endif %}
+    </div>
+  </div>
+
+  <!-- Export JSON -->
+  <div class="panel">
+    <h3 style="margin:0 0 4px; display:flex; align-items:center; gap:8px;">
+      <svg class="icon" style="width:18px;height:18px;color:var(--blue);"><use href="#icon-device-floppy"/></svg> Export JSON
+      <span class="badge encours" style="font-size:11px;">Complet</span>
+    </h3>
+    <p style="margin:0 0 16px; font-size:12px; color:var(--muted);">
+      Sauvegarde complète de toutes les données : patients, suivis TB/VIH, historiques et audit.
+    </p>
+    <div class="backup-card">
+      <div class="info">
+        <b>suivi_patients_YYYY-MM-DD.json</b>
+        <span>{{ stats.patients }} patients, {{ stats.suivi_tb + stats.suivi_vih }} suivis</span>
+      </div>
+      {% if session.get('role') in ['admin', 'user'] %}
+    <a href="/sauvegarde/export-json" class="btn btn-primary" download><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-download"/></svg> Télécharger</a>
+    {% else %}
+    <span class="badge encours" style="font-size:12px; padding:6px 12px;"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-eye"/></svg> Lecture seule</span>
+    {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Import ──────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="panel">
+  <h3 style="margin:0 0 4px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:18px;height:18px;color:var(--orange);"><use href="#icon-upload"/></svg> Import JSON
+    <span class="badge perdu" style="font-size:11px;">Restauration</span>
+  </h3>
+  <p style="margin:0 0 6px; font-size:12px; color:var(--muted);">
+    Restaure les données à partir d'un fichier JSON exporté précédemment.
+  </p>
+  <div style="background:var(--red-bg); border:1px solid #F5C6C2; border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--red);">
+    <svg class="icon" style="width:16px;height:16px;color:var(--red);vertical-align:middle;margin-right:4px;"><use href="#icon-alert-triangle"/></svg> <b>Attention :</b> Cette opération <b>remplace toutes les données existantes</b>. Faites un export JSON avant d'importer.
+  </div>
+
+  {% if session.get('role') in ['admin', 'user'] %}
+  <form id="importForm" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <input type="file" id="importFile" name="fichier" accept=".json" required>
+    <button type="button" class="btn btn-ghost" onclick="document.getElementById('importFile').click()">
+      <svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-folder"/></svg> Choisir un fichier…
+    </button>
+    <span id="importFileName" style="font-size:12.5px; color:var(--muted);">Aucun fichier sélectionné</button>
+    <button type="submit" class="btn btn-danger" id="importBtn" disabled>
+      <svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-refresh"/></svg> Importer et remplacer
+    </button>
+  </form>
+
+  <!-- Résultat import -->
+  <div id="importResult" style="margin-top:16px; display:none;"></div>
+  {% else %}
+  <div style="background:var(--slate-bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; font-size:13px; color:var(--slate);">
+    <svg class="icon" style="width:16px;height:16px;color:var(--text-secondary);vertical-align:middle;margin-right:4px;"><use href="#icon-eye"/></svg> <b>Lecture seule</b> — Vous ne pouvez pas importer de données.
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Note ────────────────────────────────────────── -->
+<div class="panel" style="font-size:12px; color:var(--muted);">
+  <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--teal); margin:0 0 6px;">Comment sauvegarder</h4>
+  <ul style="margin:0; padding-left:18px; line-height:1.7;">
+    <li><b>Export CSV</b> : idéal pour ouvrir la liste des patients dans Excel ou pour imprimer.</li>
+    <li><b>Export JSON</b> : sauvegarde complète de toutes les données. À faire régulièrement (hebdomadairement recommandé).</li>
+    <li><b>Import JSON</b> : restaure les données sur un autre poste ou après une réinstallation.</li>
+    <li>Les fichiers de sauvegarde sont dans le dossier du projet (<code>suivi_patients_*.json</code>).</li>
+  </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Afficher le nom du fichier sélectionné
+document.getElementById('importFile').addEventListener('change', function() {
+  const name = this.files[0] ? this.files[0].name : 'Aucun fichier sélectionné';
+  document.getElementById('importFileName').textContent = name;
+  document.getElementById('importBtn').disabled = !this.files[0];
+});
+
+// Import JSON
+document.getElementById('importForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const fileInput = document.getElementById('importFile');
+  if (!fileInput.files[0]) return;
+
+  if (!confirm('Voulez-vous vraiment remplacer toutes les données par celles du fichier importé ?\n\nCette action est irréversible.')) {
+    return;
+  }
+
+  const btn = document.getElementById('importBtn');
+  const resultDiv = document.getElementById('importResult');
+  btn.disabled = true;
+  btn.textContent = 'Import en cours…';
+  resultDiv.style.display = 'none';
+
+  try {
+    const formData = new FormData();
+    formData.append('fichier', fileInput.files[0]);
+
+    const resp = await fetch('/sauvegarde/import-json', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await resp.json();
+    resultDiv.style.display = 'block';
+
+    if (data.success) {
+      const c = data.counts;
+      resultDiv.innerHTML = `
+        <div style="background:var(--green-bg); border:1px solid #C5E4CD; border-radius:8px; padding:14px 16px; font-size:13px; color:var(--green);">
+          Import terminé avec succès !<br>
+          <span style="font-size:12px; color:var(--text);">
+            ${c.patients} patients · ${c.suivi_tb} suivis TB · ${c.suivi_vih} suivis VIH · ${c.historique} historiques · ${c.audit} audits
+          </span>
+        </div>
+      `;
+      showToast('Import terminé ! La page va se recharger…');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      resultDiv.innerHTML = `
+        <div style="background:var(--red-bg); border:1px solid #F5C6C2; border-radius:8px; padding:14px 16px; font-size:13px; color:var(--red);">
+          Erreur d'import : ${escapeHtml(data.error)}
+        </div>
+      `;
+      btn.disabled = false;
+      btn.textContent = 'Importer et remplacer';
+    }
+  } catch (err) {
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+      <div style="background:var(--red-bg); border:1px solid #F5C6C2; border-radius:8px; padding:14px 16px; font-size:13px; color:var(--red);">
+        Erreur réseau : ${escapeHtml(err.message)}
+      </div>
+    `;
+    btn.disabled = false;
+    btn.textContent = 'Importer et remplacer';
+  }
+});
+</script>
+{% endblock %}

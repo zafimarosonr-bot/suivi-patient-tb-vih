@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Liste des patients — Suivi Patient</title>
+  <style>
+    @page { margin: 18mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", Arial, Helvetica, sans-serif;
+      color: #1a1a1a;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    /* ── En-tête officiel ─────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #000;
+      letter-spacing: -0.3px;
+    }
+    .header .subtitle {
+      font-size: 11px;
+      color: #333;
+      margin-top: 2px;
+    }
+    .header .mark {
+      width: 36px;
+      height: 36px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      color: #000;
+    }
+
+    /* ── Meta ─────────────────────────────── */
+    .meta {
+      font-size: 10px;
+      color: #333;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .meta .filters {
+      font-style: italic;
+      max-width: 60%;
+    }
+    .meta .count {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    /* ── Titre ────────────────────────────── */
+    .doc-title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 16px 0 6px;
+      color: #000;
+    }
+    .doc-period {
+      text-align: center;
+      font-size: 11px;
+      color: #333;
+      margin-bottom: 16px;
+    }
+
+    /* ── Tableau ──────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      text-align: left;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000;
+      padding: 7px 8px;
+      border-bottom: 2px solid #000;
+      font-weight: 700;
+      background: #f5f5f5;
+    }
+    td {
+      padding: 5px 8px;
+      border-bottom: 1px solid #ccc;
+      font-size: 10.5px;
+      color: #1a1a1a;
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+    td strong {
+      font-weight: 700;
+    }
+
+    /* ── Badges noir et blanc ─────────────── */
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid #000;
+      border-radius: 3px;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #000;
+      background: transparent;
+    }
+    .badge-programme {
+      border-style: dashed;
+    }
+
+    /* ── Pied de page ─────────────────────── */
+    .footer {
+      margin-top: 24px;
+      font-size: 9px;
+      color: #555;
+      border-top: 1px solid #000;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Zone de signature ────────────────── */
+    .sig-zone {
+      display: flex;
+      gap: 60px;
+      margin-top: 40px;
+      page-break-inside: avoid;
+    }
+    .sig-block {
+      flex: 1;
+      text-align: center;
+    }
+    .sig-block .role {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000;
+      margin-bottom: 28px;
+    }
+    .sig-block .line {
+      border-bottom: 1px solid #000;
+      margin-bottom: 3px;
+      height: 18px;
+    }
+    .sig-block .line-label {
+      font-size: 9px;
+      color: #555;
+    }
+
+    /* ── Note impression ──────────────────── */
+    .print-note {
+      background: #f0f0f0;
+      color: #333;
+      font-size: 10px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      border: 1px solid #ccc;
+    }
+    @media print {
+      .print-note { display: none; }
+      body { font-size: 10px; }
+      th { background: none; }
+      tr:nth-child(even) { background: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-note">
+    Pour enregistrer en PDF : choisissez <b>« Enregistrer au format PDF »</b> dans la fenêtre d'impression.
+  </div>
+
+  {% if has_vih %}
+  <div id="vih-access-block" style="text-align:center; padding:40px 20px; margin-bottom:20px; border:2px solid #ccc; border-radius:8px;">
+    <div style="font-size:16px; font-weight:700; margin-bottom:8px;">🔒 Document confidentiel</div>
+    <div style="font-size:12px; color:#555; margin-bottom:16px;">Cette liste contient des patients VIH. Saisissez votre mot de passe pour accéder au contenu.</div>
+    <div style="display:flex; gap:8px; justify-content:center; align-items:center;">
+      <input type="password" id="vihPrintPassword" placeholder="Mot de passe" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px; width:200px;">
+      <button type="button" onclick="verifyPrintPassword()" style="padding:8px 16px; background:#000; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">Afficher</button>
+    </div>
+    <div id="vihPrintError" style="font-size:11px; color:#B3261E; margin-top:8px; display:none;">Mot de passe incorrect.</div>
+  </div>
+  <div id="vih-print-content" style="display:none;">
+  {% endif %}
+
+  <!-- En-tête officiel -->
+  <div class="header">
+    <div>
+      <h1>Maison Centrale de Mahajanga</h1>
+      <div class="subtitle">Infirmerie — Service de soins</div>
+    </div>
+    <div class="mark">MC</div>
+  </div>
+
+  <div class="doc-title">Liste des patients</div>
+  <div class="doc-period">Rapport de suivi TB & VIH — DRAP BOENY</div>
+
+  <div class="meta">
+    <div class="filters"><strong>Filtres appliqués :</strong> {{ filter_desc }}</div>
+    <div class="count">{{ patients|length }} patient(s)<br>Édité par : {{ utilisateur }}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>N° Registre</th>
+        <th>Nom et prénoms</th>
+        <th>Sexe</th>
+        <th>Âge</th>
+        <th>Statut</th>
+        <th>Programme</th>
+        <th>Début</th>
+        <th>Forme / Type</th>
+        <th>Décision</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in patients %}
+      <tr>
+        <td>
+          {% if p.tb_registre %}<strong>{{ p.tb_registre }}</strong>{% endif %}
+          {% if p.vih_registre %}{% if p.tb_registre %}<br>{% endif %}<strong>{{ p.vih_registre }}</strong>{% endif %}
+          {% if not p.tb_registre and not p.vih_registre %}{{ p.id }}{% endif %}
+        </td>
+        <td>{{ p.nom }} {{ p.prenoms }}</td>
+        <td>{{ p.sexe }}</td>
+        <td>{% if p.age %}{{ p.age }}{% else %}—{% endif %}</td>
+        <td>
+          {% if p.statut == 'incarcere' %}<span class="badge">Incarcéré</span>
+          {% elif p.statut == 'libere' %}<span class="badge">Libéré</span>
+          {% elif p.statut == 'transfere' %}<span class="badge">Transféré</span>
+          {% elif p.statut == 'decede' %}<span class="badge">Décédé</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if p.forme_clinique or (p.decision and p.decision != '') %}<span class="badge badge-programme">TB</span>{% endif %}
+          {% if p.vih_code or p.date_debut_suivi %}<span class="badge badge-programme">VIH</span>{% endif %}
+        </td>
+        <td>{% if p.date_debut_traitement %}{{ p.date_debut_traitement }}{% elif p.date_debut_suivi %}{{ p.date_debut_suivi }}{% else %}—{% endif %}</td>
+        <td>{% if p.forme_clinique %}{{ p.forme_clinique }}{% endif %}{% if p.type_cas %} / {{ p.type_cas }}{% endif %}{% if not p.forme_clinique and not p.type_cas %}—{% endif %}</td>
+        <td>{% if p.decision %}{{ p.decision }}{% else %}En cours{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if not patients %}
+  <div style="text-align:center; padding:30px; color:#555; border:1px dashed #ccc; margin-top:16px;">
+    Aucun patient ne correspond aux filtres sélectionnés.
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    <span>Maison Centrale de Mahajanga — DRAP BOENY — Pour transmission à la DHDPRS/SSPD</span>
+    <span>Généré le {{ fin_mois|date_fr if fin_mois is defined else "…" }}</span>
+  </div>
+
+  <div class="sig-zone">
+    <div class="sig-block">
+      <div class="role">Chef d'Établissement</div>
+      <div class="line"></div>
+      <div class="line-label">Signature et cachet</div>
+      <div style="margin-top:16px;"><div class="line"></div><div class="line-label">Date</div></div>
+    </div>
+    <div class="sig-block">
+      <div class="role">Infirmier-Major</div>
+      <div class="line"></div>
+      <div class="line-label">Signature</div>
+      <div style="margin-top:16px;"><div class="line"></div><div class="line-label">Date</div></div>
+    </div>
+  </div>
+
+  {% if has_vih %}
+  </div><!-- end vih-print-content -->
+  {% endif %}
+
+  {% if has_vih %}
+  <script>
+  async function verifyPrintPassword() {
+    const password = document.getElementById('vihPrintPassword').value;
+    if (!password) return;
+    try {
+      const resp = await fetch('/api/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: password })
+      });
+      const data = await resp.json();
+      if (data.valid) {
+        document.getElementById('vih-access-block').style.display = 'none';
+        document.getElementById('vih-print-content').style.display = 'block';
+        window.print();
+      } else {
+        document.getElementById('vihPrintError').style.display = 'block';
+        document.getElementById('vihPrintPassword').value = '';
+      }
+    } catch (err) {
+      document.getElementById('vihPrintError').textContent = 'Erreur de connexion.';
+      document.getElementById('vihPrintError').style.display = 'block';
+    }
+  }
+  document.getElementById('vihPrintPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') verifyPrintPassword();
+  });
+  </script>
+  {% endif %}
+</body>
+</html>

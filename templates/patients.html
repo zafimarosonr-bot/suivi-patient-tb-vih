@@ -1,0 +1,1579 @@
+{% extends "base.html" %}
+
+{% block title %}Patients — Suivi Patient{% endblock %}
+{% block topbar_title %}Patients{% endblock %}
+{% block topbar_sub %}Liste, recherche et fiches individuelles{% endblock %}
+
+{% block topbar_action %}
+{% if session.get('role') in ['admin', 'user'] %}
+<button class="btn btn-primary" onclick="openCreateWizard()">+ Nouveau patient</button>
+{% else %}
+<span class="badge encours" style="font-size:12px; padding:6px 12px;"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-eye"/></svg> Lecture seule</span>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- ── Toolbar ───────────────────────────── -->
+<div class="toolbar">
+  <div class="filter-group" style="position:relative; flex:1; min-width:200px;">
+    <label>Recherche</label>
+    <div class="search-box" style="position:relative;">
+      <svg class="icon-search"><use href="#icon-search"/></svg>
+      <input type="text" id="searchInput" placeholder="Nom, N° registre ou prénoms..."
+             value="{{ q }}" aria-label="Rechercher" autocomplete="off">
+    </div>
+    <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+  </div>
+  <div class="filter-group">
+    <label>&nbsp;</label>
+    <button type="button" class="btn btn-ghost" id="filterToggle" onclick="toggleFilterPanel()" style="position:relative;">
+      <svg class="icon" style="width:16px;height:16px;"><use href="#icon-filter"/></svg> Filtres
+      <span class="filter-badge" id="filterBadge" style="display:none; position:absolute; top:-4px; right:-4px; background:var(--blue); color:#fff; font-size:9px; font-weight:700; border-radius:50%; width:16px; height:16px; display:none; align-items:center; justify-content:center;">0</span>
+    </button>
+  </div>
+  <div class="filter-group">
+    <label>&nbsp;</label>
+    <button type="button" class="btn btn-ghost" onclick="resetFilters()" id="resetBtn" style="display:none;">Réinitialiser</button>
+  </div>
+</div>
+
+<!-- Active filter chips -->
+<div id="filterChips" class="filter-chips" style="display:none; margin-bottom:8px;"></div>
+
+<!-- Collapsible filter panel -->
+<div id="filterPanel" class="filter-panel" style="display:none;">
+  <div class="filter-panel-inner">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px;">
+      <div class="filter-group">
+        <label>Statut</label>
+        <select class="filter" id="filterStatut">
+          <option value="">Tous</option>
+          <option value="incarcere" {% if statut == 'incarcere' %}selected{% endif %}>Incarcéré</option>
+          <option value="libere" {% if statut == 'libere' %}selected{% endif %}>Libéré</option>
+          <option value="transfere" {% if statut == 'transfere' %}selected{% endif %}>Transféré</option>
+          <option value="decede" {% if statut == 'decede' %}selected{% endif %}>Décédé</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Programme</label>
+        <select class="filter" id="filterProgramme">
+          <option value="">Tous</option>
+          <option value="TB" {% if programme == 'TB' %}selected{% endif %}>TB</option>
+          <option value="VIH" {% if programme == 'VIH' %}selected{% endif %}>VIH</option>
+          <option value="both" {% if programme == 'both' %}selected{% endif %}>TB + VIH</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Tranche d'âge</label>
+        <select class="filter" id="filterAge">
+          <option value="">Tous</option>
+          <option value="<18" {% if age_range == '<18' %}selected{% endif %}>&lt;18</option>
+          <option value="18-35" {% if age_range == '18-35' %}selected{% endif %}>18-35</option>
+          <option value="35-60" {% if age_range == '35-60' %}selected{% endif %}>35-60</option>
+          <option value="60+" {% if age_range == '60+' %}selected{% endif %}>60+</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Sexe</label>
+        <select class="filter" id="filterSexe">
+          <option value="">Tous</option>
+          <option value="M" {% if sexe == 'M' %}selected{% endif %}>M</option>
+          <option value="F" {% if sexe == 'F' %}selected{% endif %}>F</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Quartier</label>
+        <select class="filter" id="filterQuartier">
+          <option value="">Tous</option>
+          {% for q_name in quartiers %}
+          <option value="{{ q_name }}" {% if quartier == q_name %}selected{% endif %}>{{ q_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Décision TB</label>
+        <select class="filter" id="filterDecisionTB">
+          <option value="">Tous</option>
+          <option value="en_cours" {% if decision_tb == 'en_cours' %}selected{% endif %}>En cours</option>
+          <option value="Guéri" {% if decision_tb == 'Guéri' %}selected{% endif %}>Guéri</option>
+          <option value="Traitement terminé" {% if decision_tb == 'Traitement terminé' %}selected{% endif %}>Traitement terminé</option>
+          <option value="Echec" {% if decision_tb == 'Echec' %}selected{% endif %}>Échec</option>
+          <option value="Perdu de vue" {% if decision_tb == 'Perdu de vue' %}selected{% endif %}>Perdu de vue</option>
+          <option value="Décédé" {% if decision_tb == 'Décédé' %}selected{% endif %}>Décès</option>
+          <option value="Transféré" {% if decision_tb == 'Transféré' %}selected{% endif %}>Transféré</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Du (date début)</label>
+        <input type="date" class="filter" id="filterDateFrom" value="{{ date_from or '' }}" style="padding:9px 12px; border-radius:10px; border:0.5px solid var(--border); font-size:13px; background:var(--surface); color:var(--text);">
+      </div>
+      <div class="filter-group">
+        <label>Au (date début)</label>
+        <input type="date" class="filter" id="filterDateTo" value="{{ date_to or '' }}" style="padding:9px 12px; border-radius:10px; border:0.5px solid var(--border); font-size:13px; background:var(--surface); color:var(--text);">
+      </div>
+      <div class="filter-group" style="display:flex; align-items:flex-end; padding-bottom:2px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; color:var(--text); cursor:pointer; white-space:nowrap; padding:9px 0;">
+          <input type="checkbox" id="filterOverdue" {% if overdue_only %}checked{% endif %} style="width:16px; height:16px; accent-color:var(--red);">
+          Retards uniquement
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+  <div class="result-count" id="resultCount">
+    {% if total_count %}{{ total_count }} patient(s) · page {{ page }}/{{ total_pages }}{% else %}Aucun patient{% endif %}
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button type="button" class="btn btn-ghost" onclick="printWithVihCheck()" style="font-size:12px; padding:6px 12px; min-height:auto;">
+      <svg class="icon" style="width:14px;height:14px;"><use href="#icon-printer"/></svg> Imprimer
+    </button>
+  </div>
+</div>
+
+<!-- ── Table ─────────────────────────────── -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:44px;">N°</th>
+        <th onclick="toggleSort('registre')">N° Registre <span class="sort-arrow {% if sort_by == 'registre' %}active{% endif %}">{% if sort_by == 'registre' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('labo')">N° labo <span class="sort-arrow {% if sort_by == 'labo' %}active{% endif %}">{% if sort_by == 'labo' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('code_vih')">Code VIH <span class="sort-arrow {% if sort_by == 'code_vih' %}active{% endif %}">{% if sort_by == 'code_vih' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('nom')">Nom et prénoms <span class="sort-arrow {% if sort_by == 'nom' %}active{% endif %}">{% if sort_by == 'nom' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('age')">Âge <span class="sort-arrow {% if sort_by == 'age' %}active{% endif %}">{% if sort_by == 'age' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('sexe')">Sexe <span class="sort-arrow {% if sort_by == 'sexe' %}active{% endif %}">{% if sort_by == 'sexe' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('statut')">Statut <span class="sort-arrow {% if sort_by == 'statut' %}active{% endif %}">{% if sort_by == 'statut' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('programme')">Programme <span class="sort-arrow {% if sort_by == 'programme' %}active{% endif %}">{% if sort_by == 'programme' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+        <th onclick="toggleSort('ctrl')">Prochain contrôle <span class="sort-arrow {% if sort_by == 'ctrl' %}active{% endif %}">{% if sort_by == 'ctrl' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      {% for p in patients %}
+      <tr onclick="window.location.href='/patient/{{ p.id }}'">
+        <td style="color:var(--muted); font-weight:600;">{{ start_index + loop.index }}</td>
+        <td>
+          {% if p.tb_registre %}<span style="color:var(--navy); font-weight:600;">{{ p.tb_registre }}</span>{% endif %}
+          {% if p.vih_registre %}{% if p.tb_registre %}<br>{% endif %}<span style="color:var(--vih); font-weight:600;">{{ p.vih_registre }}</span>{% endif %}
+          {% if not p.tb_registre and not p.vih_registre %}<span style="color:var(--muted);">{{ p.id }}</span>{% endif %}
+        </td>
+        <td>{% if p.lab_id %}{{ p.lab_id }}{% else %}—{% endif %}</td>
+        <td>{% if p.vih_code %}<span style="color:var(--vih); font-weight:600;">{{ p.vih_code }}</span>{% else %}—{% endif %}</td>
+        <td><span class="{% if 'VIH' in p.programmes %}vih-masked{% endif %}">{{ p.nom }} {{ p.prenoms }}</span>{% if 'VIH' in p.programmes and not vih_revealed and session.get('role') != 'readonly' %} <button type="button" class="vih-reveal-btn" onclick="event.stopPropagation(); openVihOverlay();"><svg class="icon" style="width:10px;height:10px;"><use href="#icon-eye"/></svg></button>{% endif %}</td>
+        <td>
+          {% if p.display_age is not none %}
+            {{ p.display_age }} ans
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ p.sexe }}</td>
+        <td>
+          {% if p.statut == 'incarcere' %}
+            <span class="badge incarcere">Incarcéré</span>
+          {% elif p.statut == 'libere' %}
+            <span class="badge libere">Libéré</span>
+          {% elif p.statut == 'transfere' %}
+            <span class="badge transfere">Transféré</span>
+          {% elif p.statut == 'decede' %}
+            <span class="badge decede">Décédé</span>
+          {% endif %}
+        </td>
+        <td>
+          {% for prog in p.programmes %}
+            {% if prog == 'TB' %}
+              <span class="badge tb">TB</span>
+            {% elif prog == 'VIH' %}
+              <span class="badge vih">VIH</span>
+            {% endif %}
+          {% endfor %}
+          {% if not p.programmes %}
+            <span style="color: var(--muted); font-size: 12px;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if p.next_ctrl %}
+            <span style="color: {% if p.ctrl_overdue %}var(--red){% else %}var(--text){% endif %}; font-weight: {% if p.ctrl_overdue %}700{% else %}500{% endif %};">
+              {{ p.next_ctrl|date_fr }}
+              {% if p.ctrl_overdue %} <svg class="icon" style="width:14px;height:14px;color:var(--red);vertical-align:middle;"><use href="#icon-alert-triangle"/></svg>{% endif %}
+            </span>
+          {% else %}
+            <span style="color: var(--muted);">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if not patients %}
+  <div class="empty-state">
+    <div class="big"><svg class="icon" style="width:32px;height:32px;color:var(--text-secondary);"><use href="#icon-users"/></svg></div>
+    <div>Aucun patient trouvé pour cette recherche.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Pagination ─────────────────────────── -->
+{% if total_pages > 1 %}
+{% set base_args = request.args.to_dict() %}
+<div class="pagination">
+  {% if page > 1 %}
+    {% set prev_args = base_args.copy() %}{% set _ = prev_args.update({'page': page - 1}) %}
+    <a class="page-link" href="{{ url_for('patients_list', **prev_args) }}">← Précédent</a>
+  {% else %}
+    <span class="page-link disabled">← Précédent</span>
+  {% endif %}
+  {% for p in range(1, total_pages + 1) %}
+    {% set p_args = base_args.copy() %}{% set _ = p_args.update({'page': p}) %}
+    {% if p == page %}
+      <span class="page-link active">{{ p }}</span>
+    {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+      <a class="page-link" href="{{ url_for('patients_list', **p_args) }}">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}
+      <span class="page-link ellipsis">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < total_pages %}
+    {% set next_args = base_args.copy() %}{% set _ = next_args.update({'page': page + 1}) %}
+    <a class="page-link" href="{{ url_for('patients_list', **next_args) }}">Suivant →</a>
+  {% else %}
+    <span class="page-link disabled">Suivant →</span>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- ── VIH Confidentiality Overlay ─────────── -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="vih-overlay" id="vihOverlay">
+  <div class="vih-overlay-box">
+    <h3 style="margin:0 0 8px; font-size:16px; color:var(--text);">Confidentialité VIH</h3>
+    <p style="font-size:12px; color:var(--text-secondary); margin:0 0 14px;">Saisissez votre mot de passe pour afficher les noms des patients VIH.</p>
+    <div class="field" style="margin-bottom:14px;">
+      <input type="password" id="vihPasswordInput" placeholder="Mot de passe" autocomplete="current-password"
+             style="width:100%; padding:10px 12px; border-radius:10px; border:0.5px solid var(--border); font-size:14px;">
+      <div id="vihPasswordError" style="font-size:11px; color:var(--red); margin-top:4px; display:none;">Mot de passe incorrect.</div>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button type="button" class="btn btn-ghost" onclick="closeVihOverlay()">Annuler</button>
+      <button type="button" class="btn btn-primary" onclick="verifyVihPassword()">Afficher</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- ── Wizard : Nouveau patient ────────────── -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="overlay" id="wizardOverlay">
+  <div class="modal" style="max-width: 600px;">
+
+    <!-- Progress bar -->
+    <div class="wizard-progress" id="wizardProgress">
+      <div class="wizard-step active" data-step="1">
+        <div class="wizard-dot">1</div>
+        <div class="wizard-label">Identité</div>
+      </div>
+      <div class="wizard-line"></div>
+      <div class="wizard-step" data-step="2">
+        <div class="wizard-dot">2</div>
+        <div class="wizard-label">Statut</div>
+      </div>
+      <div class="wizard-line"></div>
+      <div class="wizard-step" data-step="3">
+        <div class="wizard-dot">3</div>
+        <div class="wizard-label">Contact</div>
+      </div>
+      <div class="wizard-line"></div>
+      <div class="wizard-step" data-step="4">
+        <div class="wizard-dot">4</div>
+        <div class="wizard-label">Programme</div>
+      </div>
+      <div class="wizard-line"></div>
+      <div class="wizard-step" data-step="5">
+        <div class="wizard-dot">5</div>
+        <div class="wizard-label">Résumé</div>
+      </div>
+    </div>
+
+    <form id="wizardForm" novalidate>
+
+      <!-- ═══ Step 1: Identité ═══ -->
+      <div class="wizard-panel active" id="step1">
+        <h2><svg class="icon" style="width:20px;height:20px;color:var(--blue);vertical-align:middle;margin-right:4px;"><use href="#icon-user"/></svg> Identité du patient</h2>
+        <p class="sub">Informations personnelles de base.</p>
+        <div class="form-grid">
+          <div class="field" id="fw_nom">
+            <label>Nom *</label>
+            <input type="text" id="f_nom" placeholder="Nom de famille">
+            <div class="err-msg">Le nom est obligatoire.</div>
+          </div>
+          <div class="field">
+            <label>Prénoms</label>
+            <input type="text" id="f_prenoms" placeholder="Prénoms">
+          </div>
+          <div class="field">
+            <label>Date de naissance</label>
+            <input type="date" id="f_date_naissance">
+          </div>
+          <div class="field" id="fw_age">
+            <label>Âge (si date inconnue) *</label>
+            <input type="number" min="0" max="120" id="f_age" placeholder="Âge approximatif">
+            <div class="err-msg">Âge requis si pas de date de naissance.</div>
+          </div>
+          <div class="field" id="fw_sexe">
+            <label>Sexe *</label>
+            <select id="f_sexe">
+              <option value="">— Sélectionner —</option>
+              <option value="M">M — Masculin</option>
+              <option value="F">F — Féminin</option>
+            </select>
+            <div class="err-msg">Veuillez sélectionner le sexe.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Step 2: Statut ═══ -->
+      <div class="wizard-panel" id="step2">
+        <h2><svg class="icon" style="width:20px;height:20px;color:var(--blue);vertical-align:middle;margin-right:4px;"><use href="#icon-key"/></svg> Statut d'incarcération</h2>
+        <p class="sub">Situation actuelle du patient (Incarcéré par défaut).</p>
+        <div class="form-grid">
+          <div class="field" id="fw_statut">
+            <label>Statut actuel *</label>
+            <select id="f_statut">
+              <option value="">— Sélectionner —</option>
+              <option value="incarcere" selected>Incarcéré</option>
+              <option value="libere">Libéré</option>
+              <option value="transfere">Transféré</option>
+              <option value="decede">Décédé</option>
+            </select>
+            <div class="err-msg">Veuillez sélectionner un statut.</div>
+          </div>
+          <div class="field">
+            <label>Quartier d'origine</label>
+            <select id="f_quartier">
+              <option value="">—</option>
+              <option value="CAI">CAI</option>
+              <option value="CAII">CAII</option>
+              <option value="CND">CND</option>
+              <option value="CB">CB</option>
+              <option value="SP">SP</option>
+              <option value="EXMIN">EXMIN</option>
+              <option value="EXFM">EXFM</option>
+              <option value="FM">FM</option>
+            </select>
+          </div>
+          <div class="field" id="fw_situation_penale">
+            <label>Situation pénale *</label>
+            <select id="f_situation_penale">
+              <option value="">— Sélectionner —</option>
+              <option value="Condamné">Condamné</option>
+              <option value="Prévenu">Prévenu</option>
+            </select>
+            <div class="err-msg">Veuillez sélectionner la situation pénale.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Step 3: Contact ═══ -->
+      <div class="wizard-panel" id="step3">
+        <h2><svg class="icon" style="width:20px;height:20px;color:var(--blue);vertical-align:middle;margin-right:4px;"><use href="#icon-phone"/></svg> Informations de contact</h2>
+        <p class="sub" id="step3Sub">Coordonnées du patient et de son contact.</p>
+        <div class="form-grid">
+          <div class="field" id="fw_telephone" style="display:none;">
+            <label>Téléphone *</label>
+            <input type="tel" id="f_telephone" placeholder="034 00 000 00">
+            <div class="err-msg">Un numéro de téléphone est requis pour la sortie.</div>
+          </div>
+          <div class="field" id="opt_telephone" style="">
+            <label>Téléphone</label>
+            <input type="tel" id="f_telephone_opt" placeholder="034 00 000 00">
+          </div>
+          <div class="field" id="fw_adresse" style="display:none;">
+            <label>Adresse *</label>
+            <input type="text" id="f_adresse" placeholder="Quartier, rue, repère...">
+            <div class="err-msg">L'adresse est requise pour la sortie.</div>
+          </div>
+          <div class="field" id="opt_adresse" style="">
+            <label>Adresse</label>
+            <input type="text" id="f_adresse_opt" placeholder="Quartier, rue, repère...">
+          </div>
+          <div class="field">
+            <label>Contact — Nom</label>
+            <input type="text" id="f_contact_nom" placeholder="Nom du contact">
+          </div>
+          <div class="field">
+            <label>Contact — Téléphone</label>
+            <input type="tel" id="f_contact_tel" placeholder="034 00 000 00">
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Step 4: Programme ═══ -->
+      <div class="wizard-panel" id="step4">
+        <h2><svg class="icon" style="width:20px;height:20px;color:var(--blue);vertical-align:middle;margin-right:4px;"><use href="#icon-heart-pulse"/></svg> Programme de suivi</h2>
+        <p class="sub">Sélectionnez le programme médical du patient.</p>
+        <div class="form-grid">
+          <div class="field full" id="fw_programme">
+            <label>Programme</label>
+            <select id="f_programme" required>
+              <option value="">— Sélectionner un programme —</option>
+              <option value="TB">TB (Tuberculose)</option>
+              <option value="VIH">VIH</option>
+            </select>
+          </div>
+
+          <!-- Sous-formulaire TB -->
+          <div id="tbFields" class="wizard-subform" style="display:none;">
+            <div class="section-title">Informations TB</div>
+            <div class="field">
+              <label>N° laboratoire</label>
+              <input type="text" id="f_lab_id" placeholder="ex : 552/26">
+            </div>
+            <div class="field full">
+              <label id="lbl_date_debut_traitement">Date début traitement *</label>
+              <input type="date" id="f_date_debut_traitement">
+              <div class="err-msg" id="err_date_debut_traitement">La date de début est requise pour le TB.</div>
+            </div>
+            <div class="field" id="fw_forme_clinique">
+              <label>Forme clinique *</label>
+              <select id="f_forme_clinique">
+                <option value="">— Sélectionner —</option>
+                <option value="TPB+">TPB+ (Pulmonaire, frottis +)</option>
+                <option value="TPB-">TPB- (Pulmonaire, frottis -)</option>
+                <option value="TEP">TEP (Extra-pulmonaire)</option>
+              </select>
+              <div class="err-msg">Veuillez sélectionner la forme clinique.</div>
+            </div>
+            <div class="field" id="fw_type_cas">
+              <label>Type de cas *</label>
+              <select id="f_type_cas">
+                <option value="">— Sélectionner —</option>
+                <option value="Nouveau">Nouveau</option>
+                <option value="Echec">Échec</option>
+                <option value="Rechute">Rechute</option>
+                <option value="Reprise">Reprise</option>
+                <option value="Transfert entrant">Transfert entrant</option>
+              </select>
+              <div class="err-msg">Veuillez sélectionner le type de cas.</div>
+            </div>
+          </div>
+
+          <!-- Sous-formulaire VIH -->
+          <div id="vihFields" class="wizard-subform" style="display:none;">
+            <div class="section-title">Informations VIH</div>
+            <div class="field full">
+              <label>Code VIH (auto-généré si vide)</label>
+              <div id="vihCodePreview" style="padding:10px 14px; background:var(--bg); border:1px solid var(--border); border-radius:8px; font-family:monospace; font-size:14px; font-weight:700; color:var(--vih);">—</div>
+              <p style="font-size:11px; color:var(--muted); margin:4px 0 0;">Format : DDMMYY + 3 lettres NOM + 2 lettres PRÉNOMS. Laisser vide pour auto-génération.</p>
+            </div>
+            <div class="field">
+              <label>Code VIH (manuel)</label>
+              <input type="text" id="f_vih_code" placeholder="Laisser vide pour auto-génération">
+            </div>
+            <div class="field full">
+              <label id="lbl_date_debut_suivi">Date début de suivi *</label>
+              <input type="date" id="f_date_debut_suivi">
+              <div class="err-msg" id="err_date_debut_suivi">La date de début de suivi est requise pour le VIH.</div>
+            </div>
+            <div class="field">
+              <label>Observation</label>
+              <select id="f_observation">
+                <option value="Nouveau">Nouveau</option>
+                <option value="Transfert">Transfert</option>
+                <option value="Libéré">Libéré</option>
+                <option value="Décédé">Décédé</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Step 5: Résumé ═══ -->
+      <div class="wizard-panel" id="step5">
+        <h2><svg class="icon" style="width:20px;height:20px;color:var(--green);vertical-align:middle;margin-right:4px;"><use href="#icon-circle-check"/></svg> Résumé</h2>
+        <p class="sub">Vérifiez les informations avant d'enregistrer.</p>
+
+        <div class="wizard-summary">
+          <div class="wizard-summary-section">
+            <h4>Identité</h4>
+            <div class="detail-grid" id="summaryIdentity"></div>
+          </div>
+          <div class="wizard-summary-section">
+            <h4>Incarcération</h4>
+            <div class="detail-grid" id="summaryStatus"></div>
+          </div>
+          <div class="wizard-summary-section" id="summaryContactSection">
+            <h4>Contact</h4>
+            <div class="detail-grid" id="summaryContact"></div>
+          </div>
+          <div class="wizard-summary-section" id="summaryProgramSection">
+            <h4>Programme</h4>
+            <div class="detail-grid" id="summaryProgram"></div>
+          </div>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- Navigation buttons -->
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-ghost" id="wizardPrev" onclick="wizardGo(-1)" style="visibility:hidden;">← Retour</button>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-ghost" onclick="closeWizard()">Annuler</button>
+        <button type="button" class="btn btn-primary" id="wizardNext" onclick="wizardGo(1)">Suivant →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+/* ── Sortable Columns ─────────────────────── */
+.sort-arrow {
+  font-size: 10px;
+  margin-left: 2px;
+  opacity: 0.35;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  vertical-align: middle;
+}
+.sort-arrow.active {
+  opacity: 1;
+  color: var(--navy);
+}
+th:hover .sort-arrow {
+  opacity: 0.7;
+}
+th:hover .sort-arrow.active {
+  opacity: 1;
+}
+
+/* ── Pagination ──────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.page-link {
+  min-width: 32px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 0.5px solid var(--border);
+  background: var(--surface);
+  color: var(--navy);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  transition: all .15s ease;
+}
+.page-link:hover {
+  background: var(--blue-light);
+  border-color: var(--blue);
+}
+.page-link.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+  cursor: default;
+}
+.page-link.disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.page-link.ellipsis {
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+/* ── Collapsible Filter Panel ─────────────── */
+.filter-panel {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 10px;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.04);
+  animation: fadeIn .15s ease;
+}
+.filter-panel-inner { width: 100%; }
+.filter-badge {
+  display: none;
+  position: absolute;
+  top: -4px; right: -4px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 9px; font-weight: 700;
+  border-radius: 50%;
+  width: 16px; height: 16px;
+  align-items: center; justify-content: center;
+  line-height: 1;
+}
+.filter-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--blue-light); color: var(--blue);
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
+.filter-chip .chip-remove {
+  cursor: pointer; opacity: 0.6; font-size: 14px; line-height: 1;
+  display: inline-flex; align-items: center;
+}
+.filter-chip .chip-remove:hover { opacity: 1; }
+.filter-chip svg { width: 12px; height: 12px; }
+
+/* ── VIH Confidentiality ─────────────────── */
+.vih-masked { filter: blur(4px); user-select: none; cursor: pointer; transition: filter .3s ease; }
+.vih-masked.revealed { filter: none; }
+.vih-reveal-btn {
+  background: var(--violet-light); color: var(--violet); border: 1px solid rgba(175,82,222,0.2);
+  border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+  transition: all .15s ease;
+}
+.vih-reveal-btn:hover { background: rgba(175,82,222,0.15); }
+.vih-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.vih-overlay.open { display: flex; }
+.vih-overlay-box {
+  background: var(--surface); border-radius: 14px; padding: 24px; max-width: 380px; width: 90%;
+  box-shadow: 0 8px 40px rgba(0,0,0,.15);
+}
+
+/* ── Autocomplete Dropdown ─────────────────── */
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  z-index: 1000;
+  max-height: 320px;
+  overflow-y: auto;
+  display: none;
+  margin-top: 4px;
+}
+.autocomplete-dropdown.open {
+  display: block;
+}
+.autocomplete-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s ease;
+}
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+.autocomplete-item:hover,
+.autocomplete-item.active {
+  background: var(--slate-bg);
+}
+.autocomplete-item .ac-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.autocomplete-item .ac-registres {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-family: monospace;
+}
+.autocomplete-item .ac-registres .tb {
+  color: var(--navy);
+}
+.autocomplete-item .ac-registres .vih {
+  color: var(--vih);
+}
+.autocomplete-item .ac-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+.autocomplete-item .ac-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.autocomplete-item .ac-badge.incarcere {
+  background: rgba(52,199,89,0.1);
+  color: #34C759;
+}
+.autocomplete-item .ac-badge.libere {
+  background: rgba(0,122,255,0.1);
+  color: #007AFF;
+}
+.autocomplete-item .ac-badge.transfere {
+  background: rgba(255,149,0,0.1);
+  color: #FF9500;
+}
+.autocomplete-item .ac-badge.decede {
+  background: rgba(255,59,48,0.1);
+  color: #FF3B30;
+}
+.autocomplete-empty {
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Wizard Styles ─────────────────────────── */
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 24px;
+  padding: 0 10px;
+}
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+.wizard-dot {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--slate-bg);
+  color: var(--slate);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px;
+  transition: all .2s ease;
+  border: 2px solid transparent;
+}
+.wizard-step.active .wizard-dot {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.wizard-step.done .wizard-dot {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.wizard-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .3px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.wizard-step.active .wizard-label { color: var(--navy); font-weight: 700; }
+.wizard-step.done .wizard-label { color: var(--green); }
+.wizard-line {
+  width: 30px; height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+  margin-bottom: 16px;
+  transition: background .2s ease;
+}
+.wizard-line.done { background: var(--green); }
+
+/* Panels */
+.wizard-panel { display: none; }
+.wizard-panel.active { display: block; animation: fadeIn .15s ease; }
+
+/* Sub-forms */
+.wizard-subform {
+  grid-column: 1 / -1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+/* Navigation */
+.wizard-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* Summary */
+.wizard-summary {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.wizard-summary-section {
+  margin-bottom: 16px;
+}
+.wizard-summary-section h4 {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px;
+  color: var(--teal); margin: 0 0 8px;
+  border-bottom: 1px dashed var(--border); padding-bottom: 6px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 820px) {
+  .wizard-progress { gap: 0; padding: 0 4px; }
+  .wizard-dot { width: 28px; height: 28px; font-size: 11px; }
+  .wizard-label { font-size: 9px; }
+  .wizard-line { width: 16px; }
+}
+@media (max-width: 480px) {
+  .wizard-label { display: none; }
+  .wizard-line { width: 20px; }
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Autocomplete ─────────────────────────
+let acIndex = -1;
+let acResults = [];
+const acDropdown = document.getElementById('autocompleteDropdown');
+const acInput = document.getElementById('searchInput');
+
+let acDebounce = null;
+acInput.addEventListener('input', () => {
+  clearTimeout(acDebounce);
+  const q = acInput.value.trim();
+  if (q.length < 1) { closeAC(); return; }
+  acDebounce = setTimeout(() => fetchAC(q), 250);
+});
+
+acInput.addEventListener('focus', () => {
+  const q = acInput.value.trim();
+  if (q.length >= 1 && acResults.length > 0) openAC();
+});
+
+document.addEventListener('click', (e) => {
+  if (!acDropdown.contains(e.target) && e.target !== acInput) closeAC();
+});
+
+acInput.addEventListener('keydown', (e) => {
+  if (!acDropdown.classList.contains('open')) {
+    if (e.key === 'Enter') applyFilters();
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acIndex = Math.min(acIndex + 1, acResults.length - 1);
+    highlightAC();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acIndex = Math.max(acIndex - 1, 0);
+    highlightAC();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (acIndex >= 0 && acIndex < acResults.length) {
+      selectAC(acResults[acIndex]);
+    } else {
+      closeAC();
+      applyFilters();
+    }
+  } else if (e.key === 'Escape') {
+    closeAC();
+  }
+});
+
+async function fetchAC(q) {
+  try {
+    const resp = await fetch('/api/search?q=' + encodeURIComponent(q));
+    acResults = await resp.json();
+    acIndex = -1;
+    if (acResults.length === 0) {
+      acDropdown.innerHTML = '<div class="autocomplete-empty">Aucun résultat</div>';
+    } else {
+      const statutLabels = {incarcere:'Incarcéré', libere:'Libéré', transfere:'Transféré', decede:'Décédé'};
+      acDropdown.innerHTML = acResults.map((r, i) => {
+        let registres = '';
+        if (r.tb_registre || r.vih_registre || r.vih_code) {
+          const parts = [];
+          if (r.tb_registre) parts.push('<span class="tb">' + r.tb_registre + '</span>');
+          if (r.vih_registre) parts.push('<span class="vih">' + r.vih_registre + '</span>');
+          if (r.vih_code) parts.push('<span class="vih">Code: ' + r.vih_code + '</span>');
+          registres = '<div class="ac-registres">' + parts.join(' · ') + '</div>';
+        }
+        return '<div class="autocomplete-item" data-index="' + i + '" onclick="selectAC(acResults[' + i + '])">'
+          + '<div class="ac-name">' + r.nom + ' ' + r.prenoms + '</div>'
+          + registres
+          + '<div class="ac-meta"><span class="ac-badge ' + r.statut + '">' + (statutLabels[r.statut]||r.statut) + '</span>'
+          + '<span style="font-size:11px;color:var(--muted);">' + r.sexe + '</span></div>'
+          + '</div>';
+      }).join('');
+    }
+    openAC();
+  } catch (err) {
+    closeAC();
+  }
+}
+
+function openAC() { acDropdown.classList.add('open'); }
+function closeAC() {
+  acDropdown.classList.remove('open');
+  acIndex = -1;
+}
+function highlightAC() {
+  acDropdown.querySelectorAll('.autocomplete-item').forEach((el, i) => {
+    el.classList.toggle('active', i === acIndex);
+  });
+}
+function selectAC(patient) {
+  acInput.value = '';
+  closeAC();
+  window.location.href = '/patient/' + patient.id;
+}
+
+// ── Filtres ───────────────────────────────
+const FILTER_LABELS = {
+  statut: {incarcere:'Incarcéré', libere:'Libéré', transfere:'Transféré', decede:'Décédé'},
+  programme: {TB:'TB', VIH:'VIH', both:'TB + VIH'},
+  age: {'<18':'<18', '18-35':'18-35', '35-60':'35-60', '60+':'60+'},
+  sexe: {M:'M', F:'F'},
+  decision_tb: {en_cours:'En cours', 'Guéri':'Guéri', 'Traitement terminé':'Terminé', Echec:'Échec', 'Perdu de vue':'Perdu de vue', 'Décédé':'Décès', 'Transféré':'Transféré'}
+};
+
+function applyFilters() {
+  closeAC();
+  const q = document.getElementById('searchInput').value.trim();
+  const statut = document.getElementById('filterStatut').value;
+  const programme = document.getElementById('filterProgramme').value;
+  const age = document.getElementById('filterAge').value;
+  const sexe = document.getElementById('filterSexe').value;
+  const quartier = document.getElementById('filterQuartier').value;
+  const decisionTb = document.getElementById('filterDecisionTB').value;
+  const overdue = document.getElementById('filterOverdue').checked ? '1' : '';
+  const dateFrom = document.getElementById('filterDateFrom').value;
+  const dateTo = document.getElementById('filterDateTo').value;
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (statut) params.set('statut', statut);
+  if (programme) params.set('programme', programme);
+  if (age) params.set('age', age);
+  if (sexe) params.set('sexe', sexe);
+  if (quartier) params.set('quartier', quartier);
+  if (decisionTb) params.set('decision_tb', decisionTb);
+  if (overdue) params.set('overdue', overdue);
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  window.location.href = '/patients' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function resetFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterStatut').value = '';
+  document.getElementById('filterProgramme').value = '';
+  document.getElementById('filterAge').value = '';
+  document.getElementById('filterSexe').value = '';
+  document.getElementById('filterQuartier').value = '';
+  document.getElementById('filterDecisionTB').value = '';
+  document.getElementById('filterOverdue').checked = false;
+  document.getElementById('filterDateFrom').value = '';
+  document.getElementById('filterDateTo').value = '';
+  applyFilters();
+}
+
+function toggleSort(col) {
+  const params = new URLSearchParams(window.location.search);
+  params.delete('page');
+  const currentSort = params.get('sort') || '';
+  const currentDir = params.get('dir') || 'asc';
+  if (currentSort === col) {
+    params.set('dir', currentDir === 'asc' ? 'desc' : 'asc');
+  } else {
+    params.set('sort', col);
+    params.set('dir', 'asc');
+  }
+  window.location.href = '/patients' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function clearSort() {
+  const params = new URLSearchParams(window.location.search);
+  params.delete('sort');
+  params.delete('dir');
+  params.delete('page');
+  window.location.href = '/patients' + (params.toString() ? '?' + params.toString() : '');
+}
+
+// ── Collapsible Filter Panel ──────────────
+let filterPanelOpen = false;
+
+function toggleFilterPanel() {
+  filterPanelOpen = !filterPanelOpen;
+  const panel = document.getElementById('filterPanel');
+  panel.style.display = filterPanelOpen ? 'block' : 'none';
+}
+
+function getActiveFilters() {
+  const filters = [];
+  const statut = document.getElementById('filterStatut').value;
+  const programme = document.getElementById('filterProgramme').value;
+  const age = document.getElementById('filterAge').value;
+  const sexe = document.getElementById('filterSexe').value;
+  const quartier = document.getElementById('filterQuartier').value;
+  const decisionTb = document.getElementById('filterDecisionTB').value;
+  const overdue = document.getElementById('filterOverdue').checked;
+  if (statut) filters.push({key:'statut', param:'statut', label: FILTER_LABELS.statut[statut] || statut});
+  if (programme) filters.push({key:'programme', param:'programme', label: FILTER_LABELS.programme[programme] || programme});
+  if (age) filters.push({key:'age', param:'age', label: FILTER_LABELS.age[age] || age});
+  if (sexe) filters.push({key:'sexe', param:'sexe', label: FILTER_LABELS.sexe[sexe] || sexe});
+  if (quartier) filters.push({key:'quartier', param:'quartier', label: quartier});
+  if (decisionTb) filters.push({key:'decision_tb', param:'decision_tb', label: FILTER_LABELS.decision_tb[decisionTb] || decisionTb});
+  if (overdue) filters.push({key:'overdue', param:'overdue', label: 'Retards'});
+  const dateFrom = document.getElementById('filterDateFrom').value;
+  const dateTo = document.getElementById('filterDateTo').value;
+  if (dateFrom || dateTo) {
+    const label = (dateFrom || '…') + ' → ' + (dateTo || '…');
+    filters.push({key:'date_range', param:'date_from', label: 'Période: ' + label});
+  }
+  return filters;
+}
+
+function updateFilterBadge() {
+  const count = getActiveFilters().length;
+  const badge = document.getElementById('filterBadge');
+  const resetBtn = document.getElementById('resetBtn');
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'flex';
+    resetBtn.style.display = '';
+  } else {
+    badge.style.display = 'none';
+    resetBtn.style.display = 'none';
+  }
+}
+
+function updateFilterChips() {
+  const container = document.getElementById('filterChips');
+  const filters = getActiveFilters();
+  if (filters.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'flex';
+  container.innerHTML = filters.map(f =>
+    `<span class="filter-chip" onclick="removeFilter('${f.param}')">
+      ${escapeHtml(f.label)}
+      <span class="chip-remove"><svg class="icon"><use href="#icon-x"/></svg></span>
+    </span>`
+  ).join('');
+}
+
+function removeFilter(param) {
+  const params = new URLSearchParams(window.location.search);
+  params.delete(param);
+  params.delete('page');
+  if (param === 'date_range') { params.delete('date_to'); }
+  window.location.href = '/patients' + (params.toString() ? '?' + params.toString() : '');
+}
+
+// ── Print / PDF ──────────────────────────
+function buildPrintUrl() {
+  return '/patients/print' + window.location.search;
+}
+
+function printPatientList() {
+  const win = window.open(buildPrintUrl(), '_blank');
+  win.onload = function() { win.print(); };
+}
+
+// Click outside to close filter panel
+document.addEventListener('click', (e) => {
+  if (filterPanelOpen) {
+    const panel = document.getElementById('filterPanel');
+    const toggle = document.getElementById('filterToggle');
+    if (!panel.contains(e.target) && !toggle.contains(e.target)) {
+      filterPanelOpen = false;
+      panel.style.display = 'none';
+    }
+  }
+});
+
+document.getElementById('filterStatut').addEventListener('change', applyFilters);
+document.getElementById('filterProgramme').addEventListener('change', applyFilters);
+document.getElementById('filterAge').addEventListener('change', applyFilters);
+document.getElementById('filterSexe').addEventListener('change', applyFilters);
+document.getElementById('filterQuartier').addEventListener('change', applyFilters);
+document.getElementById('filterDecisionTB').addEventListener('change', applyFilters);
+document.getElementById('filterOverdue').addEventListener('change', applyFilters);
+document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
+document.getElementById('filterDateTo').addEventListener('change', applyFilters);
+
+// Initialize chips and badge on page load
+updateFilterBadge();
+updateFilterChips();
+
+// ══════════════════════════════════════════════════
+// ── VIH CONFIDENTIALITY ────────────────────────
+// ══════════════════════════════════════════════════
+let vihRevealed = false;
+let vihPendingAction = null;
+
+function openVihOverlay(action) {
+  vihPendingAction = action;
+  document.getElementById('vihOverlay').classList.add('open');
+  document.getElementById('vihPasswordInput').value = '';
+  document.getElementById('vihPasswordError').style.display = 'none';
+  document.getElementById('vihPasswordInput').focus();
+}
+
+function closeVihOverlay() {
+  document.getElementById('vihOverlay').classList.remove('open');
+  vihPendingAction = null;
+}
+
+async function verifyVihPassword() {
+  const password = document.getElementById('vihPasswordInput').value;
+  if (!password) return;
+
+  try {
+    const resp = await fetch('/api/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password })
+    });
+    const data = await resp.json();
+
+    if (data.valid) {
+      vihRevealed = true;
+      closeVihOverlay();
+      // Reveal all masked names
+      document.querySelectorAll('.vih-masked').forEach(el => el.classList.add('revealed'));
+      // Execute pending action (e.g., print)
+      if (vihPendingAction === 'print') {
+        printPatientList();
+      }
+    } else {
+      document.getElementById('vihPasswordError').style.display = 'block';
+      document.getElementById('vihPasswordInput').value = '';
+      document.getElementById('vihPasswordInput').focus();
+    }
+  } catch (err) {
+    document.getElementById('vihPasswordError').textContent = 'Erreur de connexion.';
+    document.getElementById('vihPasswordError').style.display = 'block';
+  }
+}
+
+// Close overlay on click outside
+document.getElementById('vihOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'vihOverlay') closeVihOverlay();
+});
+
+// Handle Enter key in password input
+document.getElementById('vihPasswordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') verifyVihPassword();
+  if (e.key === 'Escape') closeVihOverlay();
+});
+
+// Override print function to check for VIH patients
+function printWithVihCheck() {
+  const hasVih = document.querySelector('.vih-masked') !== null;
+  if (hasVih && !vihRevealed) {
+    openVihOverlay('print');
+  } else {
+    printPatientList();
+  }
+}
+
+// ══════════════════════════════════════════════════
+// ── WIZARD ──────────────────────────────────────
+// ══════════════════════════════════════════════════
+
+let currentStep = 1;
+const totalSteps = 5;
+
+// --- Open / Close ---
+function openCreateWizard() {
+  currentStep = 1;
+  document.getElementById('wizardForm').reset();
+  // Reset sub-forms
+  document.getElementById('tbFields').style.display = 'none';
+  document.getElementById('vihFields').style.display = 'none';
+  // Reset contact fields (hide required, show optional)
+  resetContactFields();
+  // Clear errors
+  clearWizardErrors();
+  // Update UI
+  updateWizardUI();
+  document.getElementById('wizardOverlay').classList.add('open');
+  document.getElementById('f_nom').focus();
+}
+
+function closeWizard() {
+  document.getElementById('wizardOverlay').classList.remove('open');
+}
+
+// --- Navigate ---
+function wizardGo(dir) {
+  const nextStep = currentStep + dir;
+
+  // Validate before going forward
+  if (dir > 0 && !validateStep(currentStep)) return;
+
+  // If going to step 5 (summary), populate it
+  if (nextStep === 5) populateSummary();
+
+  currentStep = nextStep;
+  updateWizardUI();
+}
+
+function updateWizardUI() {
+  // Show/hide panels
+  for (let i = 1; i <= totalSteps; i++) {
+    const panel = document.getElementById('step' + i);
+    panel.classList.toggle('active', i === currentStep);
+  }
+
+  // Update progress dots
+  document.querySelectorAll('.wizard-step').forEach(el => {
+    const step = parseInt(el.dataset.step);
+    el.classList.remove('active', 'done');
+    if (step === currentStep) el.classList.add('active');
+    else if (step < currentStep) el.classList.add('done');
+  });
+
+  // Update progress lines
+  document.querySelectorAll('.wizard-line').forEach((line, idx) => {
+    line.classList.toggle('done', idx < currentStep - 1);
+  });
+
+  // Update dots content (checkmark for done)
+  document.querySelectorAll('.wizard-dot').forEach(dot => {
+    const step = parseInt(dot.parentElement.dataset.step);
+    if (step < currentStep) {
+      dot.textContent = '✓';
+    } else {
+      dot.textContent = step;
+    }
+  });
+
+  // Show/hide prev button
+  document.getElementById('wizardPrev').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+
+  // Update next button text
+  const nextBtn = document.getElementById('wizardNext');
+  if (currentStep === totalSteps) {
+    nextBtn.textContent = '✓ Enregistrer';
+    nextBtn.onclick = submitWizard;
+  } else {
+    nextBtn.textContent = 'Suivant →';
+    nextBtn.onclick = () => wizardGo(1);
+  }
+}
+
+// --- Validation per step ---
+function validateStep(step) {
+  clearWizardErrors();
+  let valid = true;
+
+  if (step === 1) {
+    const nom = document.getElementById('f_nom').value.trim();
+    const sexe = document.getElementById('f_sexe').value;
+    const dn = document.getElementById('f_date_naissance').value;
+    const age = document.getElementById('f_age').value;
+
+    if (!nom) { markError('fw_nom'); valid = false; }
+    if (!sexe) { markError('fw_sexe'); valid = false; }
+    if (!dn && !age) { markError('fw_age'); valid = false; }
+  }
+
+  if (step === 2) {
+    const statut = document.getElementById('f_statut').value;
+    const situation = document.getElementById('f_situation_penale').value;
+    if (!statut) { markError('fw_statut'); valid = false; }
+    if (!situation) { markError('fw_situation_penale'); valid = false; }
+  }
+
+  if (step === 3) {
+    const statut = document.getElementById('f_statut').value;
+    if (statut === 'libere' || statut === 'transfere') {
+      const tel = getTelephoneValue();
+      const adresse = getAdresseValue();
+      if (!tel) { markError('fw_telephone'); valid = false; }
+      if (!adresse) { markError('fw_adresse'); valid = false; }
+    }
+  }
+
+  if (step === 4) {
+    const programme = document.getElementById('f_programme').value;
+    if (!programme) { markError('fw_programme'); valid = false; }
+    if (programme === 'TB') {
+      const dateDebut = document.getElementById('f_date_debut_traitement').value;
+      const forme = document.getElementById('f_forme_clinique').value;
+      const typeCas = document.getElementById('f_type_cas').value;
+      if (!dateDebut) { markError('lbl_date_debut_traitement'); valid = false; }
+      if (!forme) { markError('fw_forme_clinique'); valid = false; }
+      if (!typeCas) { markError('fw_type_cas'); valid = false; }
+    }
+    if (programme === 'VIH') {
+      const dateDebut = document.getElementById('f_date_debut_suivi').value;
+      if (!dateDebut) { markError('lbl_date_debut_suivi'); valid = false; }
+    }
+  }
+
+  if (!valid) showToast('Merci de compléter les champs obligatoires.');
+  return valid;
+}
+
+function markError(fieldId) {
+  const el = document.getElementById(fieldId);
+  if (el) el.classList.add('error');
+}
+
+function clearWizardErrors() {
+  document.querySelectorAll('#wizardForm .field.error').forEach(f => f.classList.remove('error'));
+}
+
+// --- Contact fields logic (step 3) ---
+function resetContactFields() {
+  // Show optional fields, hide required fields
+  document.getElementById('fw_telephone').style.display = 'none';
+  document.getElementById('fw_adresse').style.display = 'none';
+  document.getElementById('opt_telephone').style.display = '';
+  document.getElementById('opt_adresse').style.display = '';
+}
+
+function getTelephoneValue() {
+  const required = document.getElementById('f_telephone').value.trim();
+  const optional = document.getElementById('f_telephone_opt').value.trim();
+  return required || optional;
+}
+
+function getAdresseValue() {
+  const required = document.getElementById('f_adresse').value.trim();
+  const optional = document.getElementById('f_adresse_opt').value.trim();
+  return required || optional;
+}
+
+// --- Step 2 → 3 transition (update contact fields based on status) ---
+document.getElementById('f_statut').addEventListener('change', (e) => {
+  const val = e.target.value;
+  const isRelease = (val === 'libere' || val === 'transfere');
+
+  document.getElementById('fw_telephone').style.display = isRelease ? '' : 'none';
+  document.getElementById('fw_adresse').style.display = isRelease ? '' : 'none';
+  document.getElementById('opt_telephone').style.display = isRelease ? 'none' : '';
+  document.getElementById('opt_adresse').style.display = isRelease ? 'none' : '';
+
+  const sub = document.getElementById('step3Sub');
+  if (isRelease) {
+    sub.textContent = 'Téléphone et adresse sont obligatoires pour la sortie.';
+  } else {
+    sub.textContent = 'Coordonnées du patient et de son contact.';
+  }
+});
+
+// --- Step 4: Show/hide sub-forms ---
+document.getElementById('f_programme').addEventListener('change', (e) => {
+  document.getElementById('tbFields').style.display = e.target.value === 'TB' ? '' : 'none';
+  document.getElementById('vihFields').style.display = e.target.value === 'VIH' ? '' : 'none';
+  if (e.target.value === 'VIH') updateVihCodePreview();
+});
+
+// --- VIH Code Preview ---
+function generateVihCode(nom, prenoms, dateNaissance, age) {
+  let ddmm = '0101', yy = '00';
+  if (dateNaissance) {
+    const parts = dateNaissance.split('-');
+    ddmm = parts[2] + parts[1];
+    yy = parts[0].slice(2);
+  } else if (age) {
+    const year = new Date().getFullYear() - parseInt(age);
+    yy = String(year).slice(2);
+  }
+  const nomPart = (nom || 'XXX').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().slice(0, 3).padEnd(3, 'X');
+  const prenomsPart = (prenoms || 'XX').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().slice(0, 2).padEnd(2, 'X');
+  return ddmm + yy + nomPart + prenomsPart;
+}
+
+function updateVihCodePreview() {
+  const nom = document.getElementById('f_nom').value.trim();
+  const prenoms = document.getElementById('f_prenoms').value.trim();
+  const dn = document.getElementById('f_date_naissance').value;
+  const age = document.getElementById('f_age').value;
+  const code = document.getElementById('f_vih_code').value.trim();
+  if (code) {
+    document.getElementById('vihCodePreview').textContent = code;
+  } else if (nom) {
+    document.getElementById('vihCodePreview').textContent = generateVihCode(nom, prenoms, dn, age);
+  } else {
+    document.getElementById('vihCodePreview').textContent = '—';
+  }
+}
+
+// Update preview on relevant field changes
+['f_nom', 'f_prenoms', 'f_date_naissance', 'f_age', 'f_vih_code'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    if (document.getElementById('f_programme').value === 'VIH') updateVihCodePreview();
+  });
+});
+
+// --- Date/Age mutual exclusion ---
+document.getElementById('f_date_naissance').addEventListener('change', (e) => {
+  if (e.target.value) document.getElementById('f_age').value = '';
+});
+document.getElementById('f_age').addEventListener('input', (e) => {
+  if (e.target.value) document.getElementById('f_date_naissance').value = '';
+});
+
+// --- Summary (Step 5) ---
+function populateSummary() {
+  const nom = document.getElementById('f_nom').value.trim();
+  const prenoms = document.getElementById('f_prenoms').value.trim();
+  const dn = document.getElementById('f_date_naissance').value;
+  const age = document.getElementById('f_age').value;
+  const sexe = document.getElementById('f_sexe').value;
+  const statut = document.getElementById('f_statut').value;
+  const quartier = document.getElementById('f_quartier').value;
+  const situation = document.getElementById('f_situation_penale').value;
+  const tel = getTelephoneValue();
+  const adresse = getAdresseValue();
+  const contactNom = document.getElementById('f_contact_nom').value.trim();
+  const contactTel = document.getElementById('f_contact_tel').value.trim();
+  const programme = document.getElementById('f_programme').value;
+
+  // Identity
+  const statutLabels = { incarcere: 'Incarcéré', libere: 'Libéré', transfere: 'Transféré', decede: 'Décédé' };
+  document.getElementById('summaryIdentity').innerHTML =
+    `<div class="label">Nom complet</div><div class="value">${escHtml(nom)} ${escHtml(prenoms)}</div>` +
+    `<div class="label">Date de naissance</div><div class="value">${dn ? format_date_fr(dn) : (age ? 'Âge: ' + age + ' ans' : '—')}</div>` +
+    `<div class="label">Sexe</div><div class="value">${sexe === 'F' ? 'Féminin' : 'Masculin'}</div>`;
+
+  // Status
+  document.getElementById('summaryStatus').innerHTML =
+    `<div class="label">Statut</div><div class="value">${statutLabels[statut] || '—'}</div>` +
+    `<div class="label">Quartier</div><div class="value">${escHtml(quartier) || '—'}</div>` +
+    `<div class="label">Situation pénale</div><div class="value">${escHtml(situation) || '—'}</div>`;
+
+  // Contact
+  const hasContact = tel || adresse || contactNom;
+  document.getElementById('summaryContactSection').style.display = hasContact ? '' : 'none';
+  if (hasContact) {
+    document.getElementById('summaryContact').innerHTML =
+      `<div class="label">Téléphone</div><div class="value">${escHtml(tel) || '—'}</div>` +
+      `<div class="label">Adresse</div><div class="value">${escHtml(adresse) || '—'}</div>` +
+      `<div class="label">Contact</div><div class="value">${escHtml(contactNom) || '—'}</div>` +
+      `<div class="label">Tél. contact</div><div class="value">${escHtml(contactTel) || '—'}</div>`;
+  }
+
+  // Program
+  const hasProgram = programme === 'TB' || programme === 'VIH';
+  document.getElementById('summaryProgramSection').style.display = hasProgram ? '' : 'none';
+  if (hasProgram) {
+    let html = '';
+    if (programme === 'TB') {
+      const dateDebut = document.getElementById('f_date_debut_traitement').value;
+      const forme = document.getElementById('f_forme_clinique').value;
+      const typeCas = document.getElementById('f_type_cas').value;
+      const labId = document.getElementById('f_lab_id').value.trim();
+      html = `<div class="label">Programme</div><div class="value"><span class="badge tb">TB</span></div>` +
+        (labId ? `<div class="label">N° laboratoire</div><div class="value">${escHtml(labId)}</div>` : '') +
+        `<div class="label">Date début traitement</div><div class="value">${dateDebut ? format_date_fr(dateDebut) : '—'}</div>` +
+        `<div class="label">Forme clinique</div><div class="value">${escHtml(forme) || '—'}</div>` +
+        `<div class="label">Type de cas</div><div class="value">${escHtml(typeCas) || '—'}</div>`;
+    } else if (programme === 'VIH') {
+      const dateDebut = document.getElementById('f_date_debut_suivi').value;
+      const observation = document.getElementById('f_observation').value;
+      const vihCode = document.getElementById('f_vih_code').value.trim();
+      html = `<div class="label">Programme</div><div class="value"><span class="badge vih">VIH</span></div>` +
+        (vihCode ? `<div class="label">Code VIH</div><div class="value">${escHtml(vihCode)}</div>` : '') +
+        `<div class="label">Date début suivi</div><div class="value">${dateDebut ? format_date_fr(dateDebut) : '—'}</div>` +
+        `<div class="label">Observation</div><div class="value">${escHtml(observation) || '—'}</div>`;
+    }
+    document.getElementById('summaryProgram').innerHTML = html;
+  }
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+}
+
+// --- Submit ---
+async function submitWizard() {
+  const data = {
+    nom: document.getElementById('f_nom').value.trim(),
+    prenoms: document.getElementById('f_prenoms').value.trim(),
+    date_naissance: document.getElementById('f_date_naissance').value || null,
+    age: document.getElementById('f_age').value ? parseInt(document.getElementById('f_age').value) : null,
+    sexe: document.getElementById('f_sexe').value,
+    statut: document.getElementById('f_statut').value,
+    quartier: document.getElementById('f_quartier').value,
+    situation_penale: document.getElementById('f_situation_penale').value,
+    telephone: getTelephoneValue(),
+    adresse: getAdresseValue(),
+    contact_nom: document.getElementById('f_contact_nom').value.trim(),
+    contact_tel: document.getElementById('f_contact_tel').value.trim(),
+    programme: document.getElementById('f_programme').value,
+    date_debut_traitement: document.getElementById('f_date_debut_traitement').value || null,
+    lab_id: document.getElementById('f_lab_id').value.trim(),
+    forme_clinique: document.getElementById('f_forme_clinique').value,
+    type_cas: document.getElementById('f_type_cas').value,
+    code: document.getElementById('f_vih_code').value.trim(),
+    date_debut_suivi: document.getElementById('f_date_debut_suivi').value || null,
+    observation: document.getElementById('f_observation').value,
+  };
+
+  // Disable button
+  const btn = document.getElementById('wizardNext');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    const resp = await fetch('/patient/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closeWizard();
+      showToast('Patient enregistré : ' + result.id);
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+      btn.disabled = false;
+      btn.textContent = '✓ Enregistrer';
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+    btn.disabled = false;
+    btn.textContent = '✓ Enregistrer';
+  }
+}
+
+// --- Overlay close only via Cancel button ---
+document.getElementById('wizardOverlay').addEventListener('click', (e) => {
+  // Prevent accidental close — only close via Cancel button
+  if (e.target.id === 'wizardOverlay') {
+    // Do nothing — force user to click Annuler
+  }
+});
+
+// --- Keyboard ---
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeWizard();
+  if (e.key === 'Enter' && document.getElementById('wizardOverlay').classList.contains('open')) {
+    e.preventDefault();
+    const nextBtn = document.getElementById('wizardNext');
+    nextBtn.click();
+  }
+});
+</script>
+{% endblock %}

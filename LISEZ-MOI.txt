@@ -1,0 +1,31 @@
+╔══════════════════════════════════════════════════╗
+║        SUIVI PATIENT — GUIDE RAPIDE             ║
+╚══════════════════════════════════════════════════╝
+
+DÉMARRER L'APPLICATION
+───────────────────────
+Double-cliquez sur l'icône « Suivi Patient » sur le Bureau.
+→ Une fenêtre noire s'ouvre (ne la fermez pas !).
+→ Le navigateur s'ouvre automatiquement sur l'application.
+→ Vous pouvez ensuite utiliser l'application normalement.
+
+ARRÊTER L'APPLICATION
+───────────────────────
+Option 1 : Double-cliquez sur « Arrêter Suivi Patient »
+Option 2 : Fermez simplement la fenêtre noire du terminal.
+→ L'application s'arrête automatiquement.
+
+LOGIN PAR DÉFAUT
+───────────────────────
+  Administrateur : admin / admin123
+  Visiteur       : visiteur / visiteur123
+
+IMPORTANT
+───────────────────────
+• Ne déplacez PAS les fichiers de l'application.
+• Ne supprimez PAS le fichier « suivi_patients.db » (c'est la base de données).
+• En cas de problème, redémarrez simplement en re-cliquant sur « Suivi Patient ».
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Application de suivi patient TB & VIH
+Maison Centrale de Mahajanga — DRAP BOENY

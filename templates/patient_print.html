@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Fiche Patient — {{ patient.nom }} {{ patient.prenoms }}</title>
+  <style>
+    @page { margin: 18mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", Arial, Helvetica, sans-serif;
+      color: #1a1a1a;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    /* ── En-tête officiel ─────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #000;
+      letter-spacing: -0.3px;
+    }
+    .header .subtitle {
+      font-size: 11px;
+      color: #333;
+      margin-top: 2px;
+    }
+    .header .mark {
+      width: 36px;
+      height: 36px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      color: #000;
+    }
+
+    /* ── Titre document ───────────────────── */
+    .doc-title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 12px 0 4px;
+      color: #000;
+    }
+    .doc-period {
+      text-align: center;
+      font-size: 10px;
+      color: #333;
+      margin-bottom: 14px;
+    }
+
+    /* ── Meta ─────────────────────────────── */
+    .meta {
+      font-size: 10px;
+      color: #333;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Section titles ───────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000;
+      border-bottom: 1.5px solid #000;
+      padding-bottom: 3px;
+      margin: 14px 0 8px;
+    }
+
+    /* ── Detail grid ──────────────────────── */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 3px 12px;
+      font-size: 10.5px;
+    }
+    .detail-grid .label {
+      font-weight: 600;
+      color: #333;
+    }
+    .detail-grid .value {
+      color: #1a1a1a;
+    }
+
+    /* ── Table ────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+    }
+    th {
+      text-align: left;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000;
+      padding: 6px 8px;
+      border-bottom: 2px solid #000;
+      font-weight: 700;
+      background: #f5f5f5;
+    }
+    td {
+      padding: 5px 8px;
+      border-bottom: 1px solid #ccc;
+      font-size: 10.5px;
+      color: #1a1a1a;
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    /* ── Badges noir et blanc ─────────────── */
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid #000;
+      border-radius: 3px;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #000;
+      background: transparent;
+    }
+
+    /* ── Timeline TB ──────────────────────── */
+    .timeline {
+      display: flex;
+      gap: 0;
+      margin: 10px 0;
+      position: relative;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 30px;
+      right: 30px;
+      height: 2px;
+      background: #999;
+    }
+    .timeline-item {
+      flex: 1;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .timeline-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+      font-weight: 700;
+      font-size: 10px;
+      color: #000;
+      background: #fff;
+    }
+    .timeline-dot.done {
+      background: #000;
+      color: #fff;
+    }
+    .timeline-label {
+      font-size: 10px;
+      font-weight: 700;
+      margin-top: 4px;
+      color: #000;
+    }
+    .timeline-date {
+      font-size: 9px;
+      color: #333;
+      margin-top: 1px;
+    }
+    .timeline-extra {
+      font-size: 9px;
+      color: #555;
+      margin-top: 1px;
+    }
+
+    /* ── Pied de page ─────────────────────── */
+    .footer {
+      margin-top: 20px;
+      font-size: 9px;
+      color: #555;
+      border-top: 1px solid #000;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Zone de signature ────────────────── */
+    .sig-zone {
+      display: flex;
+      gap: 60px;
+      margin-top: 36px;
+      page-break-inside: avoid;
+    }
+    .sig-block {
+      flex: 1;
+      text-align: center;
+    }
+    .sig-block .role {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000;
+      margin-bottom: 28px;
+    }
+    .sig-block .line {
+      border-bottom: 1px solid #000;
+      margin-bottom: 3px;
+      height: 18px;
+    }
+    .sig-block .line-label {
+      font-size: 9px;
+      color: #555;
+    }
+
+    /* ── Note impression ──────────────────── */
+    .print-note {
+      background: #f0f0f0;
+      color: #333;
+      font-size: 10px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      border: 1px solid #ccc;
+    }
+    @media print {
+      .print-note { display: none; }
+      body { font-size: 10px; }
+      th { background: none; }
+      tr:nth-child(even) { background: none; }
+      .timeline-dot { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .timeline-dot.done { background: #000 !important; color: #fff !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-note">
+    Pour enregistrer en PDF : choisissez <b>« Enregistrer au format PDF »</b> dans la fenêtre d'impression.
+  </div>
+
+  <!-- En-tête officiel -->
+  <div class="header">
+    <div>
+      <h1>{{ org_name or 'Maison Centrale de Mahajanga' }}</h1>
+      <div class="subtitle">{{ org_service or 'Infirmerie — Service de soins' }}</div>
+    </div>
+    <div class="mark">MC</div>
+  </div>
+
+  <div class="doc-title">Fiche Patient — Dossier Médical</div>
+  <div class="doc-period">{{ org_drapp or 'DRAP BOENY' }} — {{ org_destinator or 'DHDPRS/SSPD' }}</div>
+
+  <div class="meta">
+    <div>Édité par : {{ utilisateur }}</div>
+    <div style="text-align:right;">Le {{ today_fr }}</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- ── Identité ───────────────────────────── -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="section-title">Identité</div>
+  <div class="detail-grid">
+    <div class="label">Nom complet</div>
+    <div class="value"><strong>{{ patient.nom }} {{ patient.prenoms or '' }}</strong></div>
+
+    <div class="label">Sexe</div>
+    <div class="value">{{ patient.sexe }}</div>
+
+    <div class="label">Date de naissance</div>
+    <div class="value">{{ patient.date_naissance|date_fr if patient.date_naissance else '—' }}</div>
+
+    <div class="label">Âge</div>
+    <div class="value">{% if display_age is not none %}{{ display_age }} ans{% elif patient.age %}{{ patient.age }} ans{% else %}—{% endif %}</div>
+
+    <div class="label">Quartier</div>
+    <div class="value">{{ patient.quartier or '—' }}</div>
+
+    <div class="label">Situation pénale</div>
+    <div class="value">{{ patient.situation_penale or '—' }}</div>
+
+    <div class="label">Statut actuel</div>
+    <div class="value">
+      {% if patient.statut == 'incarcere' %}<span class="badge">Incarcéré</span>
+      {% elif patient.statut == 'libere' %}<span class="badge">Libéré</span>
+      {% elif patient.statut == 'transfere' %}<span class="badge">Transféré</span>
+      {% elif patient.statut == 'decede' %}<span class="badge">Décédé</span>
+      {% else %}—{% endif %}
+    </div>
+  </div>
+
+  <!-- Contact -->
+  {% if patient.telephone or patient.adresse or patient.contact_nom %}
+  <div class="section-title">Contact</div>
+  <div class="detail-grid">
+    <div class="label">Téléphone</div>
+    <div class="value">{{ patient.telephone or '—' }}</div>
+    <div class="label">Adresse</div>
+    <div class="value">{{ patient.adresse or '—' }}</div>
+    <div class="label">Personne de contact</div>
+    <div class="value">{{ patient.contact_nom or '—' }}</div>
+    <div class="label">Tél. contact</div>
+    <div class="value">{{ patient.contact_tel or '—' }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- ── Suivi TB ───────────────────────────── -->
+  <!-- ═══════════════════════════════════════════ -->
+  {% if tb %}
+  <div class="section-title">Suivi Tuberculose</div>
+  <div class="detail-grid">
+    <div class="label">N° Registre</div>
+    <div class="value"><strong>{{ tb.numero_registre or '—' }}</strong></div>
+
+    <div class="label">N° Laboratoire</div>
+    <div class="value">{{ tb.lab_id or '—' }}</div>
+
+    <div class="label">Date début traitement</div>
+    <div class="value">{{ tb.date_debut_traitement|date_fr if tb.date_debut_traitement else '—' }}</div>
+
+    <div class="label">Forme clinique</div>
+    <div class="value">{{ tb.forme_clinique or '—' }}</div>
+
+    <div class="label">Type de cas</div>
+    <div class="value">{{ tb.type_cas or '—' }}</div>
+
+    <div class="label">Durée traitement</div>
+    <div class="value">{{ duree_tb or '—' }}</div>
+
+    <div class="label">Décision</div>
+    <div class="value">
+      {% if tb.decision %}
+        <strong>{{ tb.decision }}</strong>
+        {% if tb.date_decision %} ({{ tb.date_decision|date_fr }}){% endif %}
+      {% else %}En cours{% endif %}
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="timeline">
+    {% set milestones = [
+      ('M0', tb.date_debut_traitement, true, tb.poids_m0, 'Poids début'),
+      ('M2', tb.ctrl_m2_date, tb.ctrl_m2_fait, tb.poids_m2, 'Contrôle 2e mois'),
+      ('M5', tb.ctrl_m5_date, tb.ctrl_m5_fait, tb.poids_m5, 'Contrôle 5e mois'),
+      ('M6', tb.ctrl_m6_date, tb.ctrl_m6_fait, tb.poids_m6, 'Contrôle 6e mois')
+    ] %}
+    {% for label, date, fait, poids, desc in milestones %}
+    <div class="timeline-item">
+      <div class="timeline-dot{% if fait %} done{% endif %}">
+        {% if fait %}✓{% else %}{{ label }}{% endif %}
+      </div>
+      <div class="timeline-label">{{ label }}</div>
+      {% if date %}
+        <div class="timeline-date">{{ date|date_fr }}</div>
+      {% endif %}
+      {% if poids %}
+        <div class="timeline-extra">{{ poids }} Kg</div>
+      {% endif %}
+      {% if fait and label != 'M0' %}
+        {% set res_key = 'ctrl_' ~ label.lower() ~ '_resultat' %}
+        {% set resultat = tb[res_key] if tb[res_key] else '' %}
+        {% if resultat %}
+          <div class="timeline-extra"><strong>{{ resultat }}</strong></div>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Poids summary -->
+  <div style="margin-top:6px; font-size:10.5px;">
+    <strong>Poids :</strong>
+    {% if tb.poids_m0 %}M0: {{ tb.poids_m0 }} Kg{% endif %}
+    {% if tb.poids_m2 %} · M2: {{ tb.poids_m2 }} Kg{% endif %}
+    {% if tb.poids_m5 %} · M5: {{ tb.poids_m5 }} Kg{% endif %}
+    {% if tb.poids_m6 %} · M6: {{ tb.poids_m6 }} Kg{% endif %}
+    {% if not tb.poids_m0 and not tb.poids_m2 and not tb.poids_m5 and not tb.poids_m6 %}—{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- ── Suivi VIH ──────────────────────────── -->
+  <!-- ═══════════════════════════════════════════ -->
+  {% if vih %}
+  <div class="section-title">Suivi VIH</div>
+  <div class="detail-grid">
+    <div class="label">N° Registre</div>
+    <div class="value"><strong>{{ vih.numero_registre or '—' }}</strong></div>
+
+    <div class="label">Code</div>
+    <div class="value">{{ vih.code or '—' }}</div>
+
+    <div class="label">Date début de suivi</div>
+    <div class="value">{{ vih.date_debut_suivi|date_fr if vih.date_debut_suivi else '—' }}</div>
+
+    <div class="label">Observation</div>
+    <div class="value">{{ vih.observation or '—' }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- ── Historique des statuts ──────────────── -->
+  <!-- ═══════════════════════════════════════════ -->
+  {% if historique %}
+  <div class="section-title">Historique des statuts</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:100px;">Date</th>
+        <th>Changement</th>
+        <th>Motif</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in historique %}
+      <tr>
+        <td>{{ h.date|date_fr }}</td>
+        <td>
+          {% if h.ancien_statut == 'incarcere' %}Incarcéré
+          {% elif h.ancien_statut == 'libere' %}Libéré
+          {% elif h.ancien_statut == 'transfere' %}Transféré
+          {% elif h.ancien_statut == 'decede' %}Décédé
+          {% else %}{{ h.ancien_statut or '—' }}{% endif %}
+          →
+          {% if h.nouveau_statut == 'incarcere' %}Incarcéré
+          {% elif h.nouveau_statut == 'libere' %}Libéré
+          {% elif h.nouveau_statut == 'transfere' %}Transféré
+          {% elif h.nouveau_statut == 'decede' %}Décédé
+          {% else %}{{ h.nouveau_statut }}{% endif %}
+        </td>
+        <td style="font-size:10px; color:#555;">{{ h.motif or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <!-- ── Pied de page ─────────────────────── -->
+  <div class="footer">
+    <span>{{ org_name or 'Maison Centrale de Mahajanga' }} — {{ org_drapp or 'DRAP BOENY' }} — Pour transmission à la {{ org_destinator or 'DHDPRS/SSPD' }}</span>
+    <span>Fiche patient imprimée le {{ today_fr }}</span>
+  </div>
+
+  <!-- ── Zone de signature ────────────────── -->
+  <div class="sig-zone">
+    <div class="sig-block">
+      <div class="role">Chef d'Établissement</div>
+      <div class="line"></div>
+      <div class="line-label">Signature et cachet</div>
+      <div style="margin-top:16px;"><div class="line"></div><div class="line-label">Date</div></div>
+    </div>
+    <div class="sig-block">
+      <div class="role">Infirmier-Major</div>
+      <div class="line"></div>
+      <div class="line-label">Signature</div>
+      <div style="margin-top:16px;"><div class="line"></div><div class="line-label">Date</div></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Suivi Patient
+Comment=Démarrer l'application de suivi patient TB & VIH
+Exec=python3 /home/berthin/Bureau/09_SUIVI_VIH/2026-07/launcher.py
+Icon=/home/berthin/Bureau/09_SUIVI_VIH/2026-07/suivi_patient.png
+Terminal=true
+StartupNotify=false
+Categories=Medical;Utility;

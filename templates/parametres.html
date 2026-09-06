@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Paramètres — Suivi Patient{% endblock %}
+{% block topbar_title %}Paramètres{% endblock %}
+{% block topbar_sub %}Configuration de l'application{% endblock %}
+
+{% block content %}
+
+{% if message %}
+<div style="background:var(--green-bg); border:1px solid var(--green); border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:var(--green); display:flex; align-items:center; gap:8px;">
+  <svg class="icon" style="width:16px;height:16px;"><use href="#icon-circle-check"/></svg> {{ message }}
+</div>
+{% endif %}
+
+{% if error %}
+<div style="background:var(--red-bg); border:1px solid var(--red); border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:var(--red); display:flex; align-items:center; gap:8px;">
+  <svg class="icon" style="width:16px;height:16px;"><use href="#icon-alert-triangle"/></svg> {{ error }}
+</div>
+{% endif %}
+
+<!-- ═══ Identité de l'organisation ════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--blue);"><use href="#icon-edit"/></svg>
+    Identité de l'organisation
+  </h3>
+  <form method="POST" action="/parametres">
+    <input type="hidden" name="section" value="organization">
+    <div class="form-grid">
+      <div class="field">
+        <label>Nom de l'établissement</label>
+        <input type="text" name="org_name" value="{{ settings.get('org_name', '') }}" placeholder="Maison Centrale de Mahajanga">
+      </div>
+      <div class="field">
+        <label>DRAP / District</label>
+        <input type="text" name="org_drapp" value="{{ settings.get('org_drapp', '') }}" placeholder="DRAP BOENY">
+      </div>
+      <div class="field">
+        <label>Destinataire des rapports</label>
+        <input type="text" name="org_destinator" value="{{ settings.get('org_destinator', '') }}" placeholder="DHDPRS/SSPD">
+      </div>
+      <div class="field">
+        <label>Service</label>
+        <input type="text" name="org_service" value="{{ settings.get('org_service', '') }}" placeholder="Infirmerie — Service de soins">
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<!-- ═══ Paramètres cliniques ════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--teal);"><use href="#icon-flask"/></svg>
+    Paramètres cliniques
+  </h3>
+  <form method="POST" action="/parametres">
+    <input type="hidden" name="section" value="clinical">
+    <div class="form-grid">
+      <div class="field">
+        <label>Mois de contrôles TB</label>
+        <input type="text" name="tb_control_months" value="{{ settings.get('tb_control_months', 'M2,M5,M6') }}" placeholder="M2,M5,M6">
+        <p style="font-size:11px; color:var(--text-secondary); margin-top:4px;">Séparés par des virgules</p>
+      </div>
+      <div class="field">
+        <label>Seuil de retard (jours)</label>
+        <input type="number" name="overdue_days" min="1" max="30" value="{{ settings.get('overdue_days', '7') }}">
+        <p style="font-size:11px; color:var(--text-secondary); margin-top:4px;">Jours après la date prévue avant alerte</p>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<!-- ═══ Paramètres de rapport ════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--blue);"><use href="#icon-report"/></svg>
+    Paramètres de rapport
+  </h3>
+  <form method="POST" action="/parametres">
+    <input type="hidden" name="section" value="reports">
+    <div class="form-grid">
+      <div class="field full">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" name="report_signature" {% if settings.get('report_signature', 'true') == 'true' %}checked{% endif %} style="width:16px; height:16px; accent-color:var(--blue);">
+          Afficher la zone de signature dans les rapports PDF
+        </label>
+      </div>
+      <div class="field full">
+        <label>Note d'en-tête des rapports (optionnel)</label>
+        <textarea name="report_header_note" rows="2" placeholder="Note ajoutée sous l'en-tête des rapports...">{{ settings.get('report_header_note', '') }}</textarea>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<!-- ═══ Gestion des données ══════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--orange);"><use href="#icon-device-floppy"/></svg>
+    Gestion des données
+  </h3>
+  <form method="POST" action="/parametres">
+    <input type="hidden" name="section" value="data">
+    <div class="form-grid">
+      <div class="field">
+        <label>Rétention journal d'audit (mois)</label>
+        <input type="number" name="audit_retention_months" min="1" max="120" value="{{ settings.get('audit_retention_months', '24') }}">
+        <p style="font-size:11px; color:var(--text-secondary); margin-top:4px;">0 = pas de nettoyage automatique</p>
+      </div>
+      <div class="field">
+        <label>Archiver les patients inactifs après (mois)</label>
+        <input type="number" name="archive_inactive_months" min="0" max="120" value="{{ settings.get('archive_inactive_months', '0') }}">
+        <p style="font-size:11px; color:var(--text-secondary); margin-top:4px;">0 = pas d'archivage automatique</p>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<!-- ═══ Mon mot de passe ══════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--text);"><use href="#icon-key"/></svg>
+    Mon mot de passe
+  </h3>
+  <form method="POST" action="/parametres">
+    <input type="hidden" name="section" value="password">
+    <div class="form-grid">
+      <div class="field">
+        <label>Mot de passe actuel</label>
+        <input type="password" name="current_password" required autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label>Nouveau mot de passe</label>
+        <input type="password" name="new_password" minlength="6" required autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirmer le nouveau mot de passe</label>
+        <input type="password" name="confirm_password" minlength="6" required autocomplete="new-password">
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary">Changer le mot de passe</button>
+    </div>
+  </form>
+</div>
+
+<!-- ═══ Gestion des utilisateurs (admin only) ════════════════ -->
+{% if session.get('role') == 'admin' %}
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--violet);"><use href="#icon-users"/></svg>
+    Gestion des utilisateurs
+  </h3>
+
+  <!-- Liste des utilisateurs -->
+  <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+    <thead>
+      <tr>
+        <th style="text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); padding:8px; border-bottom:1px solid var(--border);">Utilisateur</th>
+        <th style="text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); padding:8px; border-bottom:1px solid var(--border);">Nom complet</th>
+        <th style="text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); padding:8px; border-bottom:1px solid var(--border);">Rôle</th>
+        <th style="text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); padding:8px; border-bottom:1px solid var(--border);">Statut</th>
+        <th style="text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); padding:8px; border-bottom:1px solid var(--border);">Créé le</th>
+        <th style="text-align:right; font-size:11px; font-weight:600; color:var(--text-secondary); padding:8px; border-bottom:1px solid var(--border);">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr style="border-bottom:0.5px solid var(--border-light);">
+        <td style="padding:8px; font-weight:600; font-size:13px;">{{ u.username }}</td>
+        <td style="padding:8px; font-size:13px;">{{ u.nom_complet }}</td>
+        <td style="padding:8px;">
+          <span class="badge {% if u.role == 'admin' %}decede{% elif u.role == 'user' %}encours{% else %}libere{% endif %}" style="font-size:10px;">
+            {{ u.role }}
+          </span>
+        </td>
+        <td style="padding:8px;">
+          {% if u.actif %}<span style="color:var(--green); font-size:12px;">Actif</span>
+          {% else %}<span style="color:var(--red); font-size:12px;">Inactif</span>{% endif %}
+        </td>
+        <td style="padding:8px; font-size:12px; color:var(--text-secondary);">{{ u.created_at }}</td>
+        <td style="padding:8px; text-align:right;">
+          <form method="POST" action="/parametres" style="display:inline;">
+            <input type="hidden" name="section" value="reset_password">
+            <input type="hidden" name="reset_user_id" value="{{ u.id }}">
+            <input type="hidden" name="reset_password" value="reset123">
+            <button type="submit" class="btn btn-ghost" style="font-size:11px; padding:4px 8px; min-height:auto;"
+                    onclick="return confirm('Réinitialiser le mot de passe de {{ u.username }} ?')">
+              Reset MDP
+            </button>
+          </form>
+          <button type="button" class="btn btn-ghost" style="font-size:11px; padding:4px 8px; min-height:auto;"
+                  onclick="openEditUserModal('{{ u.id }}', '{{ u.username }}', '{{ u.nom_complet }}', '{{ u.role }}', {{ 'true' if u.actif else 'false' }})">
+            Modifier
+          </button>
+          {% if u.id != session.get('user_id') %}
+          <form method="POST" action="/parametres" style="display:inline;">
+            <input type="hidden" name="section" value="delete_user">
+            <input type="hidden" name="delete_user_id" value="{{ u.id }}">
+            <button type="submit" class="btn btn-danger" style="font-size:11px; padding:4px 8px; min-height:auto;"
+                    onclick="return confirm('Supprimer définitivement l\'utilisateur {{ u.username }} ?')">
+              Supprimer
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Droits des rôles -->
+  <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:12px;">
+    <div style="font-weight:700; margin-bottom:6px; color:var(--text);">Droits par rôle :</div>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+      <div><span class="badge decede" style="font-size:10px;">admin</span><br><span style="color:var(--text-secondary);">Créer, modifier, supprimer patients. Gérer les utilisateurs et paramètres. Tout voir.</span></div>
+      <div><span class="badge encours" style="font-size:10px;">user</span><br><span style="color:var(--text-secondary);">Créer, modifier patients. Voir les noms VIH. Imprimer. Pas d'accès paramètres/utilisateurs.</span></div>
+      <div><span class="badge libere" style="font-size:10px;">readonly</span><br><span style="color:var(--text-secondary);">Consulter uniquement. Pas de création, modification, suppression ni impression.</span></div>
+    </div>
+  </div>
+
+  <!-- Créer un utilisateur -->
+  <h4 style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--teal); margin:16px 0 10px; letter-spacing:.3px;">Créer un utilisateur</h4>
+  <form method="POST" action="/parametres">
+    <input type="hidden" name="section" value="create_user">
+    <div class="form-grid" style="grid-template-columns:repeat(4, 1fr);">
+      <div class="field">
+        <label>Nom d'utilisateur</label>
+        <input type="text" name="new_username" required placeholder="ex: jean">
+      </div>
+      <div class="field">
+        <label>Nom complet</label>
+        <input type="text" name="new_nom_complet" required placeholder="ex: Jean Rakoto">
+      </div>
+      <div class="field">
+        <label>Rôle</label>
+        <select name="new_role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="readonly">Readonly</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Mot de passe</label>
+        <input type="password" name="new_password_user" minlength="6" required placeholder="Minimum 6 caractères">
+      </div>
+    </div>
+    <div style="margin-top:8px;">
+      <button type="submit" class="btn btn-primary">Créer l'utilisateur</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal édition utilisateur -->
+<div class="overlay" id="editUserOverlay">
+  <div class="modal" style="max-width:400px;">
+    <h2>Modifier l'utilisateur</h2>
+    <p class="sub">Modifier le nom complet, le rôle et le statut.</p>
+    <form method="POST" action="/parametres">
+      <input type="hidden" name="section" value="edit_user">
+      <input type="hidden" name="edit_user_id" id="editUserId">
+      <div class="form-grid">
+        <div class="field full">
+          <label>Nom d'utilisateur</label>
+          <input type="text" name="edit_username" id="editUserUsername" required>
+        </div>
+        <div class="field full">
+          <label>Nom complet</label>
+          <input type="text" name="edit_nom_complet" id="editUserNom" required>
+        </div>
+        <div class="field">
+          <label>Rôle</label>
+          <select name="edit_role" id="editUserRole">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+            <option value="readonly">Readonly</option>
+          </select>
+        </div>
+        <div class="field" style="display:flex; align-items:flex-end; padding-bottom:2px;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:9px 0;">
+            <input type="checkbox" name="edit_actif" id="editUserActif" style="width:16px; height:16px; accent-color:var(--green);">
+            Compte actif
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeEditUserModal()">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if session.get('role') == 'admin' %}
+function openEditUserModal(id, username, nom, role, actif) {
+  document.getElementById('editUserId').value = id;
+  document.getElementById('editUserUsername').value = username;
+  document.getElementById('editUserNom').value = nom;
+  document.getElementById('editUserRole').value = role;
+  document.getElementById('editUserActif').checked = actif;
+  document.getElementById('editUserOverlay').classList.add('open');
+}
+function closeEditUserModal() {
+  document.getElementById('editUserOverlay').classList.remove('open');
+}
+document.getElementById('editUserOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'editUserOverlay') closeEditUserModal();
+});
+{% endif %}
+</script>
+{% endblock %}

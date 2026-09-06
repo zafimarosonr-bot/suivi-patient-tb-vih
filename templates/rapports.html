@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+
+{% block title %}Rapports mensuels — Suivi Patient{% endblock %}
+{% block topbar_title %}Rapport mensuel{% endblock %}
+{% block topbar_sub %}{{ mois_nom }} {{ annee }} — Statistiques TB & VIH{% endblock %}
+
+{% block topbar_action %}
+<button class="btn btn-primary" onclick="printReport()"><svg class="icon" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"><use href="#icon-printer"/></svg> Exporter en PDF</button>
+{% endblock %}
+
+{% block content %}
+<!-- ── Sélecteur mois/année ────────────────── -->
+<div class="panel" style="margin-bottom:24px;">
+  <form method="GET" action="/rapports" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+    <div class="filter-group">
+      <label>Mois</label>
+      <select class="filter" name="mois">
+        {% for m in range(1, 13) %}
+          <option value="{{ m }}" {% if mois == m %}selected{% endif %}>
+            {{ ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][m] }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Année</label>
+      <select class="filter" name="annee">
+        {% for y in range(2024, 2028) %}
+          <option value="{{ y }}" {% if annee == y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>&nbsp;</label>
+      <button type="submit" class="btn btn-primary">Afficher</button>
+    </div>
+  </form>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Rapport TB ─────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--blue);"><use href="#icon-heart-pulse"/></svg> Tuberculose
+    <span class="badge tb" style="font-size:11px;">Programme TB</span>
+  </h3>
+
+  <div class="stat-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom:16px;">
+    <div class="stat">
+      <div class="label">Actifs au {{ fin_mois|date_fr }}</div>
+      <div class="value">{{ stats.tb_actifs }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Nouveaux cas</div>
+      <div class="value" style="color:var(--blue);">{{ stats.tb_nouveaux }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Sorties</div>
+      <div class="value">{{ stats.tb_sorties }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Décès</div>
+      <div class="value" style="color:var(--red);">{{ stats.tb_deces }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Transferts</div>
+      <div class="value" style="color:var(--orange);">{{ stats.tb_transferts }}</div>
+    </div>
+  </div>
+
+  <!-- Issues du mois -->
+  {% if stats.tb_issues %}
+  <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--teal); letter-spacing:.4px; margin:14px 0 8px;">Répartition des issues du mois</h4>
+  <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+    {% for issue in stats.tb_issues %}
+    <span style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:12px;">
+      <strong>{{ issue.count }}</strong> {{ issue.decision }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Taux de réalisation des contrôles -->
+  <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--teal); letter-spacing:.4px; margin:14px 0 8px;">Contrôles bactériologiques du mois</h4>
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+    <span style="font-size:24px; font-weight:700; color:{% if stats.tb_ctrl_taux >= 85 %}var(--green){% elif stats.tb_ctrl_taux >= 70 %}var(--orange){% else %}var(--red){% endif %};">{{ stats.tb_ctrl_taux }}%</span>
+    <span style="font-size:12px; color:var(--text-secondary);">réalisés ({{ stats.tb_ctrl_faits }}/{{ stats.tb_ctrl_prevus }} prévus)</span>
+    <div style="flex:1; height:6px; background:var(--slate-bg); border-radius:4px; overflow:hidden; max-width:200px;">
+      <div style="height:100%; width:{{ stats.tb_ctrl_taux }}%; background:{% if stats.tb_ctrl_taux >= 85 %}var(--green){% elif stats.tb_ctrl_taux >= 70 %}var(--orange){% else %}var(--red){% endif %}; border-radius:4px;"></div>
+    </div>
+  </div>
+
+  <!-- Répartition par forme clinique / type de cas -->
+  {% if stats.tb_formes %}
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:6px;">Par forme clinique</div>
+      {% for f in stats.tb_formes %}
+      <div style="display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:0.5px solid var(--border-light);">
+        <span>{{ f.forme_clinique }}</span><span style="font-weight:600;">{{ f.cnt }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:6px;">Par type de cas</div>
+      {% for t in stats.tb_types_cas %}
+      <div style="display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:0.5px solid var(--border-light);">
+        <span>{{ t.type_cas }}</span><span style="font-weight:600;">{{ t.cnt }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Rapport VIH ────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--vih);"><use href="#icon-heart"/></svg> VIH
+    <span class="badge vih" style="font-size:11px;">Programme VIH</span>
+  </h3>
+
+  <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom:16px;">
+    <div class="stat">
+      <div class="label">Actifs au {{ fin_mois|date_fr }}</div>
+      <div class="value">{{ stats.vih_actifs }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Nouveaux cas</div>
+      <div class="value" style="color:var(--blue);">{{ stats.vih_nouveaux }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Sorties</div>
+      <div class="value">{{ stats.vih_sorties }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Décès</div>
+      <div class="value" style="color:var(--red);">{{ stats.vih_deces }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Démographie ────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+    <svg class="icon" style="width:20px;height:20px;color:var(--teal);"><use href="#icon-users"/></svg> Démographie — cas actifs (TB + VIH)
+  </h3>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+    <!-- Par tranche d'âge -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">Par tranche d'âge</div>
+      {% for a in stats.demo_age %}
+      <div style="margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
+          <span>{{ a.label }}</span><span style="font-weight:600;">{{ a.count }}</span>
+        </div>
+        {% set total_demo = stats.tb_actifs + stats.vih_actifs %}
+        {% if total_demo > 0 %}
+        <div style="height:4px; background:var(--slate-bg); border-radius:2px; overflow:hidden;">
+          <div style="height:100%; width:{{ (a.count / total_demo * 100)|int }}%; background:var(--teal); border-radius:2px;"></div>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Par sexe -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">Par sexe</div>
+      {% for s in stats.demo_sexe %}
+      <div style="margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
+          <span>{{ 'Masculin' if s.sexe == 'M' else 'Féminin' }}</span><span style="font-weight:600;">{{ s.cnt }}</span>
+        </div>
+        {% set total_demo = stats.tb_actifs + stats.vih_actifs %}
+        {% if total_demo > 0 %}
+        <div style="height:4px; background:var(--slate-bg); border-radius:2px; overflow:hidden;">
+          <div style="height:100%; width:{{ (s.cnt / total_demo * 100)|int }}%; background:var(--blue); border-radius:2px;"></div>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Par quartier -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">Par quartier</div>
+      {% for q in stats.demo_quartier %}
+      <div style="margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
+          <span>{{ q.quartier }}</span><span style="font-weight:600;">{{ q.cnt }}</span>
+        </div>
+        {% set total_demo = stats.tb_actifs + stats.vih_actifs %}
+        {% if total_demo > 0 %}
+        <div style="height:4px; background:var(--slate-bg); border-radius:2px; overflow:hidden;">
+          <div style="height:100%; width:{{ (q.cnt / total_demo * 100)|int }}%; background:var(--violet); border-radius:2px;"></div>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Note de traçabilité ─────────────────── -->
+<div style="font-size:11px; color:var(--text-secondary); margin-top:12px; padding:10px 0; border-top:0.5px solid var(--border);">
+  Rapport généré automatiquement le {{ fin_mois|date_fr }} à partir du registre électronique. Édité par : {{ utilisateur }}.
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function printReport() {
+  const moisNom = '{{ mois_nom }}';
+  const annee = '{{ annee }}';
+  const finMois = '{{ fin_mois }}';
+  const utilisateur = '{{ utilisateur }}';
+
+
+  // Build TB issues string
+  let tbIssuesHtml = '';
+  {% for issue in stats.tb_issues %}
+  tbIssuesHtml += '<tr><td class="label">{{ issue.decision }}</td><td class="value">{{ issue.count }}</td></tr>';
+  {% endfor %}
+
+  // Build TB formes string
+  let tbFormesHtml = '';
+  {% for f in stats.tb_formes %}
+  tbFormesHtml += '<tr><td class="label">{{ f.forme_clinique }}</td><td class="value">{{ f.cnt }}</td></tr>';
+  {% endfor %}
+
+  // Build TB types string
+  let tbTypesHtml = '';
+  {% for t in stats.tb_types_cas %}
+  tbTypesHtml += '<tr><td class="label">{{ t.type_cas }}</td><td class="value">{{ t.cnt }}</td></tr>';
+  {% endfor %}
+
+  // Build demographics
+  let demoAgeHtml = '';
+  {% for a in stats.demo_age %}
+  demoAgeHtml += '<tr><td class="label">{{ a.label }}</td><td class="value">{{ a.count }}</td></tr>';
+  {% endfor %}
+  let demoSexeHtml = '';
+  {% for s in stats.demo_sexe %}
+  demoSexeHtml += '<tr><td class="label">{{ "Masculin" if s.sexe == "M" else "Féminin" }}</td><td class="value">{{ s.cnt }}</td></tr>';
+  {% endfor %}
+  let demoQuartierHtml = '';
+  {% for q in stats.demo_quartier %}
+  demoQuartierHtml += '<tr><td class="label">{{ q.quartier }}</td><td class="value">{{ q.cnt }}</td></tr>';
+  {% endfor %}
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html>
+    <head>
+      <title>Rapport mensuel ${moisNom} ${annee}</title>
+      <style>
+        @page { margin: 18mm; }
+        * { box-sizing: border-box; }
+        body {
+          font-family: Arial, Helvetica, sans-serif;
+          color: #1E2A35; padding: 0;
+          max-width: 720px; margin: 0 auto; font-size: 12px;
+        }
+        .doc-header { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1F4E78; padding-bottom:14px; margin-bottom:20px; }
+        .doc-title h1 { font-size:16px; color:#1F4E78; margin:0; }
+        .doc-title p { margin:2px 0 0; font-size:11px; color:#7C8B99; }
+        .doc-mark { width:38px; height:38px; border-radius:8px; background:#1F4E78; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
+        .doc-subtitle { text-align:center; font-size:14px; font-weight:700; color:#1F4E78; margin:16px 0 20px; }
+        .doc-period { text-align:center; font-size:12px; color:#7C8B99; margin-bottom:20px; }
+        h2.section { font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#2A9D8F; margin:20px 0 8px; border-top:1px dashed #E6EAEE; padding-top:10px; }
+        h3.subsection { font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:#555; margin:12px 0 6px; }
+        table { width:100%; border-collapse:collapse; margin-bottom:12px; }
+        td { padding:6px 8px; border-bottom:1px solid #EEF1F4; font-size:12px; }
+        td.label { color:#7C8B99; width:55%; }
+        td.value { font-weight:700; }
+        .retention-box { background:#F5F7F9; border-radius:6px; padding:10px 14px; margin:8px 0; display:flex; justify-content:space-between; }
+        .retention-box .rate { font-size:18px; font-weight:700; }
+        .summary-box { background:#EAF1F7; border-left:3px solid #1F4E78; padding:12px 16px; margin-bottom:20px; font-size:13px; line-height:1.6; }
+        .note { background:#EAF1F7; color:#1F4E78; font-size:11px; padding:10px 14px; border-radius:6px; margin-top:16px; }
+        .trace { font-size:10px; color:#9AA7B2; margin-top:12px; border-top:1px solid #E6EAEE; padding-top:8px; }
+        .sig-zone { display:flex; gap:40px; margin-top:40px; page-break-inside:avoid; }
+        .sig-block { flex:1; border-top:1px solid #1E2A35; padding-top:8px; text-align:center; }
+        .sig-block .role { font-size:11px; font-weight:700; text-transform:uppercase; color:#1F4E78; margin-bottom:24px; }
+        .sig-block .line { border-bottom:1px solid #ccc; margin-bottom:4px; height:20px; }
+        .sig-block .line-label { font-size:10px; color:#7C8B99; }
+        .doc-footer { margin-top:30px; font-size:10px; color:#9AA7B2; text-align:center; border-top:1px solid #E6EAEE; padding-top:10px; }
+        .print-note { background:#EAF1F7; color:#1F4E78; font-size:11px; padding:10px 14px; border-radius:6px; margin-bottom:16px; }
+        @media print { .print-note { display:none; } }
+      </style>
+    </head>
+    <body>
+      <div class="print-note">
+        Pour enregistrer en PDF : dans la fenêtre d'impression, choisissez
+        <b>« Enregistrer au format PDF »</b> (ou « Microsoft Print to PDF »).
+      </div>
+
+      <!-- 1. En-tête officiel -->
+      <div class="doc-header">
+        <div class="doc-title">
+          <h1>Maison Centrale de Mahajanga</h1>
+          <p>Infirmerie — Service de soins</p>
+        </div>
+        <div class="doc-mark">MC</div>
+      </div>
+      <div class="doc-subtitle">Rapport mensuel — Suivi TB & VIH</div>
+      <div class="doc-period">${moisNom} ${annee} — DRAP BOENY — Destinataire : DHDPRS/SSPD</div>
+
+      <!-- Section TB -->
+      <h2 class="section">Tuberculose</h2>
+      <table>
+        <tr><td class="label">Patients actifs au ${formatDate(finMois)}</td><td class="value">{{ stats.tb_actifs }}</td></tr>
+        <tr><td class="label">Nouveaux cas du mois</td><td class="value">{{ stats.tb_nouveaux }}</td></tr>
+        <tr><td class="label">Sorties (guéri + terminé + perdu de vue)</td><td class="value">{{ stats.tb_sorties }}</td></tr>
+        <tr><td class="label">Décès</td><td class="value" style="color:#B3261E;">{{ stats.tb_deces }}</td></tr>
+        <tr><td class="label">Transferts</td><td class="value" style="color:#A15C00;">{{ stats.tb_transferts }}</td></tr>
+      </table>
+
+      ${tbIssuesHtml ? '<h3 class="subsection">Répartition des issues du mois</h3><table>' + tbIssuesHtml + '</table>' : ''}
+
+      <h3 class="subsection">Contrôles bactériologiques du mois</h3>
+      <table>
+        <tr><td class="label">Taux de réalisation</td><td class="value">{{ stats.tb_ctrl_taux }}% ({{ stats.tb_ctrl_faits }}/{{ stats.tb_ctrl_prevus }} prévus)</td></tr>
+      </table>
+
+      ${tbFormesHtml ? '<h3 class="subsection">Répartition par forme clinique</h3><table>' + tbFormesHtml + '</table>' : ''}
+      ${tbTypesHtml ? '<h3 class="subsection">Répartition par type de cas</h3><table>' + tbTypesHtml + '</table>' : ''}
+
+
+      <!-- 4. Section VIH -->
+      <h2 class="section">VIH</h2>
+      <table>
+        <tr><td class="label">Patients actifs au ${formatDate(finMois)}</td><td class="value">{{ stats.vih_actifs }}</td></tr>
+        <tr><td class="label">Nouveaux cas du mois</td><td class="value">{{ stats.vih_nouveaux }}</td></tr>
+        <tr><td class="label">Sorties</td><td class="value">{{ stats.vih_sorties }}</td></tr>
+        <tr><td class="label">Décès</td><td class="value" style="color:#B3261E;">{{ stats.vih_deces }}</td></tr>
+      </table>
+
+      <!-- 5. Démographie -->
+      <h2 class="section">Démographie — cas actifs (TB + VIH)</h2>
+      <div style="display:flex; gap:20px;">
+        <div style="flex:1;"><h3 class="subsection">Par tranche d'âge</h3><table>${demoAgeHtml}</table></div>
+        <div style="flex:1;"><h3 class="subsection">Par sexe</h3><table>${demoSexeHtml}</table></div>
+        <div style="flex:1;"><h3 class="subsection">Par quartier</h3><table>${demoQuartierHtml}</table></div>
+      </div>
+
+      <!-- Note de traçabilité -->
+      <div class="trace">
+        Rapport généré automatiquement le ${new Date().toLocaleDateString('fr-FR')} à partir du registre électronique. Édité par : ${utilisateur}.
+      </div>
+
+      <!-- 7. Zone de signature -->
+      <div class="sig-zone">
+        <div class="sig-block">
+          <div class="role">Chef d'Établissement</div>
+          <div class="line"></div>
+          <div class="line-label">Signature et cachet</div>
+          <div style="margin-top:16px;"><div class="line"></div><div class="line-label">Date</div></div>
+        </div>
+        <div class="sig-block">
+          <div class="role">Infirmier-Major</div>
+          <div class="line"></div>
+          <div class="line-label">Signature</div>
+          <div style="margin-top:16px;"><div class="line"></div><div class="line-label">Date</div></div>
+        </div>
+      </div>
+
+      <div class="doc-footer">
+        Maison Centrale de Mahajanga — DRAP BOENY — Pour transmission à la DHDPRS/SSPD
+      </div>
+    </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return parts[2] + '-' + parts[1] + '-' + parts[0];
+}
+</script>
+{% endblock %}

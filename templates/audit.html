@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Journal d'audit — Suivi Patient{% endblock %}
+{% block topbar_title %}Journal d'audit{% endblock %}
+{% block topbar_sub %}{{ total }} entrée(s) enregistrée(s){% endblock %}
+{% block topbar_action %}{% endblock %}
+
+{% block content %}
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Filtres ────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="toolbar">
+  <div class="filter-group">
+    <form method="GET" action="/audit" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; width:100%;">
+      <div class="search-box" style="flex:1; min-width:200px;">
+        <svg class="icon"><use href="#icon-search"/></svg>
+        <input type="text" name="q" value="{{ q }}" placeholder="Rechercher dans le contenu…">
+      </div>
+
+      <select name="table_ciblee" class="btn btn-ghost" style="font-size:12px;">
+        <option value="">Toutes les tables</option>
+        <option value="patients" {% if table_filter == 'patients' %}selected{% endif %}>Patients</option>
+        <option value="suivi_tb" {% if table_filter == 'suivi_tb' %}selected{% endif %}>Suivi TB</option>
+        <option value="suivi_vih" {% if table_filter == 'suivi_vih' %}selected{% endif %}>Suivi VIH</option>
+      </select>
+
+      <select name="action" class="btn btn-ghost" style="font-size:12px;">
+        <option value="">Toutes les actions</option>
+        <option value="create" {% if action_filter == 'create' %}selected{% endif %}>Création</option>
+        <option value="update" {% if action_filter == 'update' %}selected{% endif %}>Modification</option>
+        <option value="delete" {% if action_filter == 'delete' %}selected{% endif %}>Suppression</option>
+      </select>
+
+      <select name="auteur" class="btn btn-ghost" style="font-size:12px;">
+        <option value="">Tous les auteurs</option>
+        {% for a in auteurs %}
+        <option value="{{ a }}" {% if auteur_filter == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="btn btn-primary" style="font-size:12px;">Filtrer</button>
+      {% if q or table_filter or action_filter or auteur_filter %}
+      <a href="/audit" class="btn btn-ghost" style="font-size:12px;">Réinitialiser</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Filtres actifs (chips) ─────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+{% if q or table_filter or action_filter or auteur_filter %}
+<div class="filter-chips" style="margin-bottom:12px;">
+  {% if q %}<span class="filter-chip">Recherche : "{{ q }}" <a href="{{ url_for('audit_log', q='', table_ciblee=table_filter, action=action_filter, auteur=auteur_filter) }}">×</a></span>{% endif %}
+  {% if table_filter %}<span class="filter-chip">Table : {{ table_filter }} <a href="{{ url_for('audit_log', q=q, table_ciblee='', action=action_filter, auteur=auteur_filter) }}">×</a></span>{% endif %}
+  {% if action_filter %}<span class="filter-chip">Action : {{ action_filter }} <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action='', auteur=auteur_filter) }}">×</a></span>{% endif %}
+  {% if auteur_filter %}<span class="filter-chip">Auteur : {{ auteur_filter }} <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action=action_filter, auteur='') }}">×</a></span>{% endif %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Tableau ────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:140px;">Date</th>
+        <th style="width:100px;">Action</th>
+        <th style="width:100px;">Table</th>
+        <th style="width:120px;">ID cible</th>
+        <th style="width:110px;">Auteur</th>
+        <th>Détails</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in entries %}
+      <tr>
+        <td style="font-size:12px; white-space:nowrap;">{{ entry.date }}</td>
+        <td>
+          {% if entry.action == 'create' %}
+            <span class="badge" style="background:var(--green-bg); color:var(--green); border-color:var(--green);">Création</span>
+          {% elif entry.action == 'update' %}
+            <span class="badge" style="background:var(--blue-bg); color:var(--blue); border-color:var(--blue);">Modification</span>
+          {% elif entry.action == 'delete' %}
+            <span class="badge" style="background:var(--red-bg); color:var(--red); border-color:var(--red);">Suppression</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;">
+          {% if entry.table_ciblee == 'patients' %}👤 Patients
+          {% elif entry.table_ciblee == 'suivi_tb' %}🫁 Suivi TB
+          {% elif entry.table_ciblee == 'suivi_vih' %}💜 Suivi VIH
+          {% else %}{{ entry.table_ciblee }}{% endif %}
+        </td>
+        <td>
+          <a href="/patient/{{ entry.id_cible }}" style="font-size:12px; font-weight:600; color:var(--navy); text-decoration:none;">{{ entry.id_cible }}</a>
+        </td>
+        <td style="font-size:12px;">{{ entry.auteur }}</td>
+        <td style="font-size:11px;">
+          <button class="btn btn-ghost" style="font-size:11px; padding:2px 8px;" onclick="toggleDetails(this)">
+            <svg class="icon" style="width:12px;height:12px;vertical-align:middle;margin-right:2px;"><use href="#icon-chevron-down"/></svg>
+            Afficher
+          </button>
+          <div class="audit-details" style="display:none; margin-top:6px;">
+            {% if entry.ancien_contenu %}
+            <div style="margin-bottom:4px;">
+              <strong style="font-size:10px; color:var(--muted);">Ancien contenu :</strong>
+              <pre style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; font-size:10px; max-height:120px; overflow:auto; margin:2px 0; white-space:pre-wrap; word-break:break-all;">{{ entry.ancien_contenu }}</pre>
+            </div>
+            {% endif %}
+            {% if entry.nouveau_contenu %}
+            <div>
+              <strong style="font-size:10px; color:var(--muted);">Nouveau contenu :</strong>
+              <pre style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; font-size:10px; max-height:120px; overflow:auto; margin:2px 0; white-space:pre-wrap; word-break:break-all;">{{ entry.nouveau_contenu }}</pre>
+            </div>
+            {% endif %}
+            {% if not entry.ancien_contenu and not entry.nouveau_contenu %}
+            <span style="color:var(--muted);">Aucun détail disponible</span>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if not entries %}
+  <div style="text-align:center; padding:40px 20px; color:var(--muted);">
+    <svg class="icon" style="width:32px;height:32px;margin-bottom:8px;opacity:0.4;"><use href="#icon-clipboard"/></svg>
+    <p>Aucune entrée d'audit ne correspond aux filtres sélectionnés.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Pagination ─────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+{% if total_pages > 1 %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; font-size:12px; color:var(--muted);">
+  <span>{{ total }} entrée(s) · page {{ page }}/{{ total_pages }}</span>
+  <div style="display:flex; gap:4px; align-items:center;">
+    {% if page > 1 %}
+    <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action=action_filter, auteur=auteur_filter, page=page-1) }}" class="btn btn-ghost" style="font-size:11px;">← Préc</a>
+    {% endif %}
+
+    {% set page_start = [1, page - 2] | max %}
+    {% set page_end = [total_pages, page + 2] | min %}
+    {% if page_start > 1 %}
+      <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action=action_filter, auteur=auteur_filter, page=1) }}" class="btn btn-ghost" style="font-size:11px; min-width:30px;">1</a>
+      {% if page_start > 2 %}<span style="color:var(--muted);">…</span>{% endif %}
+    {% endif %}
+    {% for p in range(page_start, page_end + 1) %}
+    <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action=action_filter, auteur=auteur_filter, page=p) }}"
+       class="btn {% if p == page %}btn-primary{% else %}btn-ghost{% endif %}"
+       style="font-size:11px; min-width:30px;">{{ p }}</a>
+    {% endfor %}
+    {% if page_end < total_pages %}
+      {% if page_end < total_pages - 1 %}<span style="color:var(--muted);">…</span>{% endif %}
+      <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action=action_filter, auteur=auteur_filter, page=total_pages) }}" class="btn btn-ghost" style="font-size:11px; min-width:30px;">{{ total_pages }}</a>
+    {% endif %}
+
+    {% if page < total_pages %}
+    <a href="{{ url_for('audit_log', q=q, table_ciblee=table_filter, action=action_filter, auteur=auteur_filter, page=page+1) }}" class="btn btn-ghost" style="font-size:11px;">Suiv →</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleDetails(btn) {
+  const details = btn.nextElementSibling;
+  if (details.style.display === 'none') {
+    details.style.display = 'block';
+    btn.innerHTML = '<svg class="icon" style="width:12px;height:12px;vertical-align:middle;margin-right:2px;"><use href="#icon-chevron-down"/></svg> Masquer';
+  } else {
+    details.style.display = 'none';
+    btn.innerHTML = '<svg class="icon" style="width:12px;height:12px;vertical-align:middle;margin-right:2px;"><use href="#icon-chevron-down"/></svg> Afficher';
+  }
+}
+</script>
+{% endblock %}

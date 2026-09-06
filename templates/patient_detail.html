@@ -1,0 +1,1120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ patient.nom }} {{ patient.prenoms }} — Fiche patient{% endblock %}
+{% block topbar_title %}{{ patient.nom }} {{ patient.prenoms }}{% endblock %}
+{% block topbar_sub %}
+  {% if tb and tb.numero_registre %}<span style="color:var(--navy); font-weight:600;">{{ tb.numero_registre }}</span>{% endif %}
+  {% if vih and vih.numero_registre %}{% if tb and tb.numero_registre %} · {% endif %}<span style="color:var(--vih); font-weight:600;">{{ vih.numero_registre }}</span>{% endif %}
+  {% if not (tb and tb.numero_registre) and not (vih and vih.numero_registre) %}{{ patient.id }}{% endif %}
+{% endblock %}
+
+{% block topbar_action %}
+<a href="/patients" class="btn btn-ghost">← Retour à la liste</a>
+{% endblock %}
+
+{% block content %}
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── En-tête identité + statut ──────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div style="width:48px; height:48px; border-radius:12px; background:var(--navy); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:16px; flex-shrink:0;">
+      {{ patient.nom[0] }}{{ patient.prenoms[0] if patient.prenoms else '' }}
+    </div>
+    <div>
+      <h2 style="margin:0; font-size:20px; color:var(--navy-dark);">{{ patient.nom }} {{ patient.prenoms }}</h2>
+      <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+        {% if tb and tb.numero_registre %}<span style="color:var(--navy); font-weight:600;">{{ tb.numero_registre }}</span>{% endif %}
+        {% if vih and vih.numero_registre %}{% if tb and tb.numero_registre %} · {% endif %}<span style="color:var(--vih); font-weight:600;">{{ vih.numero_registre }}</span>{% endif %}
+        {% if not (tb and tb.numero_registre) and not (vih and vih.numero_registre) %}{{ patient.id }}{% endif %}
+        · {{ patient.sexe }} ·
+        {% if display_age is not none %}{{ display_age }} ans{% elif patient.date_naissance %}{{ patient.date_naissance|date_fr }}{% endif %}
+        {% if patient.quartier %} · {{ patient.quartier }}{% endif %}
+        {% if patient.situation_penale %} · {{ patient.situation_penale }}{% endif %}
+      </div>
+    </div>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    {% if patient.statut == 'incarcere' %}
+      <span class="badge incarcere" style="font-size:13px; padding:6px 14px;">Incarcéré</span>
+    {% elif patient.statut == 'libere' %}
+      <span class="badge libere" style="font-size:13px; padding:6px 14px;">Libéré</span>
+    {% elif patient.statut == 'transfere' %}
+      <span class="badge transfere" style="font-size:13px; padding:6px 14px;">Transféré</span>
+    {% elif patient.statut == 'decede' %}
+      <span class="badge decede" style="font-size:13px; padding:6px 14px;">Décédé</span>
+    {% endif %}
+    <a href="/patient/{{ patient.id }}/print" target="_blank" class="btn btn-ghost"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-printer"/></svg> Imprimer</a>
+    {% if session.get('role') in ['admin', 'user'] %}
+    <button class="btn btn-ghost" onclick="openEditModal()"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-edit"/></svg> Modifier</button>
+    <button class="btn btn-ghost" onclick="openStatutModal()">Changer le statut</button>
+    {% endif %}
+    {% if session.get('role') == 'admin' %}
+    <button class="btn btn-ghost" style="color:var(--red);" onclick="openDeleteModal()"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-trash"/></svg> Supprimer</button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Sous-section TB ────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+{% if tb %}
+<div class="panel" style="margin-bottom:20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div>
+      <h3 style="margin:0; display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:20px;height:20px;color:var(--blue);"><use href="#icon-heart-pulse"/></svg> Suivi Tuberculose</h3>
+      <p class="sub" style="margin:2px 0 0;">
+        {% if tb.numero_registre %}<strong style="color:var(--navy);">{{ tb.numero_registre }}</strong> · {% endif %}
+        {% if tb.lab_id %}N° labo : {{ tb.lab_id }} · {% endif %}{{ tb.forme_clinique or '—' }} · {{ tb.type_cas or '—' }}
+        {% if duree_tb %} · Depuis {{ duree_tb }}{% endif %}
+      </p>
+    </div>
+    <div>
+      {% if tb.decision %}
+        {% if tb.decision == 'Guéri' %}
+          <span class="badge gueri">{{ tb.decision }}</span>
+        {% elif tb.decision == 'Perdu de vue' %}
+          <span class="badge perdu">{{ tb.decision }}</span>
+        {% elif tb.decision == 'Echec' or tb.decision == 'Décédé' %}
+          <span class="badge decede">{{ tb.decision }}</span>
+        {% else %}
+          <span class="badge encours">{{ tb.decision }}</span>
+        {% endif %}
+      {% else %}
+        <span class="badge encours">En cours</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Timeline M0 → M6 -->
+  <div style="display:flex; gap:0; margin:16px 0; position:relative;">
+    <!-- Ligne de fond -->
+    <div style="position:absolute; top:20px; left:24px; right:24px; height:3px; background:var(--border); border-radius:2px;"></div>
+
+    {% set milestones = [
+      ('M0', tb.date_debut_traitement, true, tb.poids_m0, 'Poids début'),
+      ('M2', tb.ctrl_m2_date, tb.ctrl_m2_fait, tb.poids_m2, 'Contrôle 2e mois'),
+      ('M5', tb.ctrl_m5_date, tb.ctrl_m5_fait, tb.poids_m5, 'Contrôle 5e mois'),
+      ('M6', tb.ctrl_m6_date, tb.ctrl_m6_fait, tb.poids_m6, 'Contrôle 6e mois')
+    ] %}
+
+    {% for label, date, fait, poids, desc in milestones %}
+    <div style="flex:1; text-align:center; position:relative; z-index:1;">
+      <!-- Cercle -->
+      {% if fait %}
+        <div style="width:40px; height:40px; border-radius:50%; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; margin:0 auto; font-weight:700; font-size:12px; box-shadow:0 0 0 3px var(--green-bg);">
+          ✓
+        </div>
+      {% elif date and date|date_fr != '—' %}
+        {% set today = today_str() if false else '' %}
+        <div style="width:40px; height:40px; border-radius:50%; background:var(--surface); border:3px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto; font-weight:700; font-size:12px; color:var(--muted);">
+          {{ label }}
+        </div>
+      {% else %}
+        <div style="width:40px; height:40px; border-radius:50%; background:var(--slate-bg); display:flex; align-items:center; justify-content:center; margin:0 auto; font-weight:700; font-size:12px; color:var(--slate);">
+          {{ label }}
+        </div>
+      {% endif %}
+      <!-- Label -->
+      <div style="margin-top:8px; font-size:12px; font-weight:700; color:var(--text);">{{ label }}</div>
+      <div style="font-size:11px; color:var(--muted);">{{ desc }}</div>
+      {% if date %}
+        <div style="font-size:11px; color:{% if fait %}var(--green){% else %}var(--text){% endif %}; font-weight:600; margin-top:2px;">
+          {{ date|date_fr }}
+        </div>
+      {% endif %}
+      {% if poids %}
+        <div style="font-size:11px; color:var(--slate); margin-top:2px;">{{ poids }} Kg</div>
+      {% endif %}
+      {% if fait and label != 'M0' %}
+        {% set res_key = 'ctrl_' ~ label.lower() ~ '_resultat' %}
+        {% set resultat = tb[res_key] if tb[res_key] else '' %}
+        {% if resultat %}
+          <div style="font-size:10px; color:var(--green); font-weight:600; margin-top:2px;">{{ resultat }}</div>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Poids summary -->
+  <div style="display:flex; gap:16px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:12px;">
+    <span style="color:var(--muted);">Poids :</span>
+    {% if tb.poids_m0 %}<span style="font-weight:600;">M0: {{ tb.poids_m0 }} Kg</span>{% endif %}
+    {% if tb.poids_m2 %}<span style="font-weight:600;">M2: {{ tb.poids_m2 }} Kg</span>{% endif %}
+    {% if tb.poids_m5 %}<span style="font-weight:600;">M5: {{ tb.poids_m5 }} Kg</span>{% endif %}
+    {% if tb.poids_m6 %}<span style="font-weight:600;">M6: {{ tb.poids_m6 }} Kg</span>{% endif %}
+  </div>
+
+  <!-- Boutons d'action -->
+  {% if session.get('role') in ['admin', 'user'] %}
+  <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+    <button class="btn btn-ghost" onclick="openLabIdModal()"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-tag"/></svg> Modifier N° labo</button>
+    <button class="btn btn-ghost" onclick="openPoidsModal()"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-scale"/></svg> Modifier les poids</button>
+    <button class="btn btn-ghost" onclick="openCtrlsModal()"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-flask"/></svg> Modifier les contrôles</button>
+    {% if not tb.decision %}
+      {% if not tb.ctrl_m2_fait and tb.ctrl_m2_date %}
+        <button class="btn btn-ghost" onclick="openCtrlModal('M2', '{{ tb.ctrl_m2_date }}')">✓ Marquer M2 fait</button>
+      {% endif %}
+      {% if not tb.ctrl_m5_fait and tb.ctrl_m5_date %}
+        <button class="btn btn-ghost" onclick="openCtrlModal('M5', '{{ tb.ctrl_m5_date }}')">✓ Marquer M5 fait</button>
+      {% endif %}
+      {% if not tb.ctrl_m6_fait and tb.ctrl_m6_date %}
+        <button class="btn btn-ghost" onclick="openCtrlModal('M6', '{{ tb.ctrl_m6_date }}')">✓ Marquer M6 fait</button>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not has_tb_active and session.get('role') in ['admin', 'user'] %}
+<div class="panel" style="margin-bottom:20px; border:2px dashed var(--border); background:var(--bg);">
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <div>
+      <h3 style="margin:0; color:var(--navy); display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:20px;height:20px;color:var(--blue);"><use href="#icon-heart-pulse"/></svg> Aucun suivi TB actif</h3>
+      <p class="sub" style="margin:2px 0 0;">Ce patient n'est pas encore dans le programme Tuberculose.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openAddTbModal()">+ Ajouter un suivi TB</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Sous-section VIH ───────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+{% if vih %}
+<div class="panel" style="margin-bottom:20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div>
+      <h3 style="margin:0; display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:20px;height:20px;color:var(--vih);"><use href="#icon-heart"/></svg> Suivi VIH</h3>
+      <p class="sub" style="margin:2px 0 0;">
+        {% if vih.numero_registre %}<strong style="color:var(--vih);">{{ vih.numero_registre }}</strong> · {% endif %}
+        {% if vih.code %}Code : {{ vih.code }} · {% endif %}Depuis {{ vih.date_debut_suivi|date_fr if vih.date_debut_suivi else '—' }}
+      </p>
+    </div>
+    <div>
+      {% if vih.observation == 'Nouveau' %}
+        <span class="badge tb">Nouveau</span>
+      {% elif vih.observation == 'Transfert' %}
+        <span class="badge transfere">Transfert</span>
+      {% elif vih.observation == 'Libéré' %}
+        <span class="badge libere">Libéré</span>
+      {% elif vih.observation == 'Décédé' %}
+        <span class="badge decede">Décédé</span>
+      {% else %}
+        <span class="badge encours">En cours</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Boutons d'action VIH -->
+  {% if session.get('role') in ['admin', 'user'] %}
+  <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+    <button class="btn btn-ghost" onclick="openVihCodeModal()"><svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-tag"/></svg> Modifier le code VIH</button>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not has_vih_active and session.get('role') in ['admin', 'user'] %}
+<div class="panel" style="margin-bottom:20px; border:2px dashed var(--border); background:var(--bg);">
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <div>
+      <h3 style="margin:0; color:var(--vih); display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:20px;height:20px;color:var(--vih);"><use href="#icon-heart"/></svg> Aucun suivi VIH actif</h3>
+      <p class="sub" style="margin:2px 0 0;">Ce patient n'est pas encore dans le programme VIH.</p>
+    </div>
+    <button class="btn btn-primary" style="background:var(--vih);" onclick="openAddVihModal()">+ Ajouter un suivi VIH</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Contact (si libéré ou à la sortie) ─────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+{% if patient.statut == 'libere' or patient.telephone or patient.adresse or patient.contact_nom %}
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 10px; display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:18px;height:18px;"><use href="#icon-phone"/></svg> Contact</h3>
+  <div class="detail-grid">
+    <div class="label">Téléphone</div><div class="value">{{ patient.telephone or '—' }}</div>
+    <div class="label">Adresse</div><div class="value">{{ patient.adresse or '—' }}</div>
+    <div class="label">Contact</div><div class="value">{{ patient.contact_nom or '—' }}</div>
+    <div class="label">Tél. contact</div><div class="value">{{ patient.contact_tel or '—' }}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Historique des statuts ──────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="panel" style="margin-bottom:20px;">
+  <h3 style="margin:0 0 10px; display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:18px;height:18px;"><use href="#icon-clipboard"/></svg> Historique des statuts</h3>
+  {% if historique %}
+    <table class="detail-table" style="width:100%;">
+      {% for h in historique %}
+      <tr>
+        <td style="width:120px; color:var(--muted);">{{ h.date|date_fr }}</td>
+        <td style="font-weight:600;">
+          {% if h.ancien_statut == 'incarcere' %}Incarcéré
+          {% elif h.ancien_statut == 'libere' %}Libéré
+          {% elif h.ancien_statut == 'transfere' %}Transféré
+          {% elif h.ancien_statut == 'decede' %}Décédé
+          {% else %}{{ h.ancien_statut }}{% endif %}
+          →
+          {% if h.nouveau_statut == 'incarcere' %}Incarcéré
+          {% elif h.nouveau_statut == 'libere' %}Libéré
+          {% elif h.nouveau_statut == 'transfere' %}Transféré
+          {% elif h.nouveau_statut == 'decede' %}Décédé
+          {% else %}{{ h.nouveau_statut }}{% endif %}
+        </td>
+        <td style="color:var(--muted); font-size:12px;">{{ h.motif or '' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="font-size:12px; color:var(--muted);">Aucun changement de statut enregistré.</p>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ── Modals ─────────────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+
+<!-- Modal Édition Patient -->
+<div class="overlay" id="editOverlay">
+  <div class="modal" style="max-width:560px;">
+    <h2>Modifier la fiche patient</h2>
+    <p class="sub">Modifiez les informations personnelles et de contact.</p>
+    <div class="form-grid">
+      <div class="field">
+        <label>Nom *</label>
+        <input type="text" id="editNom" value="{{ patient.nom }}">
+      </div>
+      <div class="field">
+        <label>Prénoms</label>
+        <input type="text" id="editPrenoms" value="{{ patient.prenoms }}">
+      </div>
+      <div class="field">
+        <label>Date de naissance</label>
+        <input type="date" id="editDateNaissance" value="{{ patient.date_naissance or '' }}">
+      </div>
+      <div class="field">
+        <label>Âge</label>
+        <input type="number" min="0" max="150" id="editAge" value="{{ patient.age or '' }}">
+      </div>
+      <div class="field">
+        <label>Sexe</label>
+        <select id="editSexe">
+          <option value="M" {% if patient.sexe == 'M' %}selected{% endif %}>M — Masculin</option>
+          <option value="F" {% if patient.sexe == 'F' %}selected{% endif %}>F — Féminin</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Quartier</label>
+        <input type="text" id="editQuartier" value="{{ patient.quartier }}">
+      </div>
+
+      <div class="section-title">Situation pénale</div>
+      <div class="field">
+        <label>Situation *</label>
+        <select id="editSituationPenale">
+          <option value="" {% if not patient.situation_penale %}selected{% endif %}>— Sélectionner —</option>
+          <option value="Condamné" {% if patient.situation_penale == 'Condamné' %}selected{% endif %}>Condamné</option>
+          <option value="Prévenu" {% if patient.situation_penale == 'Prévenu' %}selected{% endif %}>Prévenu</option>
+        </select>
+      </div>
+
+      <div class="section-title">Contact</div>
+      <div class="field">
+        <label>Téléphone</label>
+        <input type="tel" id="editTelephone" value="{{ patient.telephone }}" placeholder="034 00 000 00">
+      </div>
+      <div class="field">
+        <label>Adresse</label>
+        <input type="text" id="editAdresse" value="{{ patient.adresse }}">
+      </div>
+      <div class="field">
+        <label>Contact — Nom</label>
+        <input type="text" id="editContactNom" value="{{ patient.contact_nom }}">
+      </div>
+      <div class="field">
+        <label>Contact — Téléphone</label>
+        <input type="tel" id="editContactTel" value="{{ patient.contact_tel }}" placeholder="034 00 000 00">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeEditModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitEdit()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Contrôle TB -->
+<div class="overlay" id="ctrlOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h2 id="ctrlTitle">Enregistrer un contrôle</h2>
+    <p class="sub" id="ctrlSub"></p>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Résultat du contrôle</label>
+        <select id="ctrlResultat">
+          <option value="">— Sélectionner —</option>
+          <option value="Négatif">Négatif</option>
+          <option value="Positif">Positif</option>
+          <option value="Indéterminé">Indéterminé</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeCtrlModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitCtrl()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Changement de statut -->
+<div class="overlay" id="statutOverlay">
+  <div class="modal" style="max-width:520px;">
+    <h2>Changer le statut</h2>
+    <p class="sub">Le changement sera enregistré dans l'historique.</p>
+    <div class="form-grid">
+      <div class="field full" id="fw_nouveau_statut">
+        <label>Nouveau statut *</label>
+        <select id="nouveauStatut">
+          <option value="">— Sélectionner —</option>
+          <option value="incarcere">Incarcéré</option>
+          <option value="libere">Libéré</option>
+          <option value="transfere">Transféré</option>
+          <option value="decede">Décédé</option>
+        </select>
+      </div>
+
+      <!-- Formulaire Libération -->
+      <div id="libereFields" style="display:none; grid-column:1/-1;">
+        <div class="section-title">Fiche de sortie</div>
+        <div class="field">
+          <label>Téléphone</label>
+          <input type="tel" id="lib Telephone" placeholder="034 00 000 00">
+        </div>
+        <div class="field">
+          <label>Adresse</label>
+          <input type="text" id="libAdresse" placeholder="Adresse post-libération">
+        </div>
+        <div class="field">
+          <label>Contact — Nom</label>
+          <input type="text" id="libContactNom" placeholder="Nom du contact">
+        </div>
+        <div class="field">
+          <label>Contact — Téléphone</label>
+          <input type="tel" id="libContactTel" placeholder="034 00 000 00">
+        </div>
+        <div class="field full">
+          <label>Structure de santé de référence</label>
+          <input type="text" id="libStructure" placeholder="CSP, CSB, Hôpital...">
+        </div>
+      </div>
+
+      <!-- Formulaire Transfert -->
+      <div id="transfereFields" style="display:none; grid-column:1/-1;">
+        <div class="section-title">Fiche de transfert médical</div>
+        <div class="field full">
+          <label>Structure de destination *</label>
+          <input type="text" id="transfDestination" placeholder="Nom de l'établissement">
+        </div>
+        <div class="field full">
+          <label>Motif du transfert</label>
+          <textarea id="transfMotif" style="width:100%; padding:8px 10px; border-radius:7px; border:1px solid var(--border); font-size:13px; min-height:60px; font-family:inherit;" placeholder="Raison du transfert..."></textarea>
+        </div>
+      </div>
+
+      <!-- Formulaire Décès -->
+      <div id="decedeFields" style="display:none; grid-column:1/-1;">
+        <div class="section-title">Fiche de décès</div>
+        <div class="field">
+          <label>Date du décès</label>
+          <input type="date" id="decesDate">
+        </div>
+        <div class="field">
+          <label>Cause (si connue)</label>
+          <input type="text" id="decesCause" placeholder="Cause du décès">
+        </div>
+      </div>
+
+      <!-- Motif général -->
+      <div class="field full" id="motifGeneralField">
+        <label>Motif / Observation</label>
+        <input type="text" id="statutMotif" placeholder="Motif du changement de statut">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeStatutModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitStatut()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal N° Laboratoire -->
+<div class="overlay" id="labIdOverlay">
+  <div class="modal" style="max-width:400px;">
+    <h2>Modifier le N° laboratoire</h2>
+    <p class="sub">Numéro octroyé par le laboratoire (ex : 552/26).</p>
+    <div class="form-grid">
+      <div class="field full">
+        <label>N° laboratoire</label>
+        <input type="text" id="editLabId" value="{{ tb.lab_id or '' }}" placeholder="ex : 552/26">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeLabIdModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitLabId()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Poids -->
+<div class="overlay" id="poidsOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h2>Modifier les poids</h2>
+    <p class="sub">Poids en kg aux différentes étapes du traitement.</p>
+    <div class="form-grid">
+      <div class="field">
+        <label>Poids M0 (début)</label>
+        <input type="number" min="0" step="0.1" id="editPoidsM0" value="{{ tb.poids_m0 or '' }}">
+      </div>
+      <div class="field">
+        <label>Poids M2 (2e mois)</label>
+        <input type="number" min="0" step="0.1" id="editPoidsM2" value="{{ tb.poids_m2 or '' }}">
+      </div>
+      <div class="field">
+        <label>Poids M5 (5e mois)</label>
+        <input type="number" min="0" step="0.1" id="editPoidsM5" value="{{ tb.poids_m5 or '' }}">
+      </div>
+      <div class="field">
+        <label>Poids M6 (6e mois)</label>
+        <input type="number" min="0" step="0.1" id="editPoidsM6" value="{{ tb.poids_m6 or '' }}">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closePoidsModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitPoids()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Contrôles TB -->
+<div class="overlay" id="ctrlsOverlay">
+  <div class="modal" style="max-width:520px;">
+    <h2>Modifier les contrôles</h2>
+    <p class="sub">Dates prévues et résultats des contrôles bactériologiques.</p>
+    <div class="form-grid">
+      <div class="section-title">Contrôle M2 (2e mois)</div>
+      <div class="field">
+        <label>Date prévue</label>
+        <input type="date" id="editCtrlM2Date" value="{{ tb.ctrl_m2_date or '' }}">
+      </div>
+      <div class="field">
+        <label>Résultat</label>
+        <select id="editCtrlM2Resultat">
+          <option value="" {% if not tb.ctrl_m2_resultat %}selected{% endif %}>— En attente —</option>
+          <option value="Négatif" {% if tb.ctrl_m2_resultat == 'Négatif' %}selected{% endif %}>Négatif</option>
+          <option value="Positif" {% if tb.ctrl_m2_resultat == 'Positif' %}selected{% endif %}>Positif</option>
+          <option value="Indéterminé" {% if tb.ctrl_m2_resultat == 'Indéterminé' %}selected{% endif %}>Indéterminé</option>
+        </select>
+      </div>
+
+      <div class="section-title">Contrôle M5 (5e mois)</div>
+      <div class="field">
+        <label>Date prévue</label>
+        <input type="date" id="editCtrlM5Date" value="{{ tb.ctrl_m5_date or '' }}">
+      </div>
+      <div class="field">
+        <label>Résultat</label>
+        <select id="editCtrlM5Resultat">
+          <option value="" {% if not tb.ctrl_m5_resultat %}selected{% endif %}>— En attente —</option>
+          <option value="Négatif" {% if tb.ctrl_m5_resultat == 'Négatif' %}selected{% endif %}>Négatif</option>
+          <option value="Positif" {% if tb.ctrl_m5_resultat == 'Positif' %}selected{% endif %}>Positif</option>
+          <option value="Indéterminé" {% if tb.ctrl_m5_resultat == 'Indéterminé' %}selected{% endif %}>Indéterminé</option>
+        </select>
+      </div>
+
+      <div class="section-title">Contrôle M6 (6e mois)</div>
+      <div class="field">
+        <label>Date prévue</label>
+        <input type="date" id="editCtrlM6Date" value="{{ tb.ctrl_m6_date or '' }}">
+      </div>
+      <div class="field">
+        <label>Résultat</label>
+        <select id="editCtrlM6Resultat">
+          <option value="" {% if not tb.ctrl_m6_resultat %}selected{% endif %}>— En attente —</option>
+          <option value="Négatif" {% if tb.ctrl_m6_resultat == 'Négatif' %}selected{% endif %}>Négatif</option>
+          <option value="Positif" {% if tb.ctrl_m6_resultat == 'Positif' %}selected{% endif %}>Positif</option>
+          <option value="Indéterminé" {% if tb.ctrl_m6_resultat == 'Indéterminé' %}selected{% endif %}>Indéterminé</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeCtrlsModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitCtrls()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Suppression Patient -->
+<div class="overlay" id="deleteOverlay">
+  <div class="modal" style="max-width:440px;">
+    <h2 style="color:var(--red); display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:22px;height:22px;color:var(--red);"><use href="#icon-alert-triangle"/></svg> Supprimer le patient</h2>
+    <p class="sub">Cette action est <strong>irréversible</strong>. Toutes les données du patient seront supprimées.</p>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Tapez l'identifiant du patient pour confirmer : <strong>{{ patient.id }}</strong></label>
+        <input type="text" id="deleteConfirmInput" placeholder="Ex : {{ patient.id }}" autocomplete="off">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeDeleteModal()">Annuler</button>
+        <button class="btn btn-danger" id="deleteConfirmBtn" onclick="submitDelete()" disabled>Supprimer définitivement</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Code VIH -->
+<div class="overlay" id="vihCodeOverlay">
+  <div class="modal" style="max-width:400px;">
+    <h2>Modifier le code VIH</h2>
+    <p class="sub">Numéro de code du patient dans le programme VIH.</p>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Code VIH</label>
+        <input type="text" id="editVihCode" value="{{ vih.code if vih else '' }}" placeholder="ex : 12345">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeVihCodeModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitVihCode()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Modal : Ajouter un suivi TB ────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="overlay" id="addTbOverlay">
+  <div class="modal" style="max-width:500px;">
+    <h2 style="display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:22px;height:22px;color:var(--blue);"><use href="#icon-heart-pulse"/></svg> Ajouter un suivi Tuberculose</h2>
+    <p class="sub">Démarrer un nouveau volet TB pour ce patient. Le numéro de registre sera généré automatiquement.</p>
+    <div class="form-grid">
+      <div class="field">
+        <label>N° laboratoire</label>
+        <input type="text" id="addTbLabId" placeholder="ex : 552/26">
+      </div>
+      <div class="field full">
+        <label>Date début traitement *</label>
+        <input type="date" id="addTbDateDebut" required>
+      </div>
+      <div class="field">
+        <label>Forme clinique *</label>
+        <select id="addTbForme">
+          <option value="">— Sélectionner —</option>
+          <option value="TPB+">TPB+ (Pulmonaire, frottis +)</option>
+          <option value="TPB-">TPB- (Pulmonaire, frottis -)</option>
+          <option value="TEP">TEP (Extra-pulmonaire)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Type de cas *</label>
+        <select id="addTbTypeCas">
+          <option value="">— Sélectionner —</option>
+          <option value="Nouveau">Nouveau</option>
+          <option value="Echec">Échec</option>
+          <option value="Rechute">Rechute</option>
+          <option value="Reprise">Reprise</option>
+          <option value="Transfert entrant">Transfert entrant</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeAddTbModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="submitAddTb()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Modal : Ajouter un suivi VIH ───────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="overlay" id="addVihOverlay">
+  <div class="modal" style="max-width:500px;">
+    <h2 style="display:flex; align-items:center; gap:8px;"><svg class="icon" style="width:22px;height:22px;color:var(--vih);"><use href="#icon-heart"/></svg> Ajouter un suivi VIH</h2>
+    <p class="sub">Démarrer un nouveau volet VIH pour ce patient. Le numéro de registre et le code seront générés automatiquement.</p>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Code VIH (auto-généré)</label>
+        <div id="addVihCodePreview" style="padding:10px 14px; background:var(--bg); border:1px solid var(--border); border-radius:8px; font-family:monospace; font-size:14px; font-weight:700; color:var(--vih);">—</div>
+        <p style="font-size:11px; color:var(--muted); margin:4px 0 0;">Format : DDMMYY + 3 lettres NOM + 2 lettres PRÉNOMS</p>
+      </div>
+      <div class="field full">
+        <label>Date début de suivi *</label>
+        <input type="date" id="addVihDateDebut" required>
+      </div>
+      <div class="field">
+        <label>Observation</label>
+        <select id="addVihObservation">
+          <option value="Nouveau">Nouveau</option>
+          <option value="Transfert">Transfert</option>
+          <option value="Libéré">Libéré</option>
+          <option value="Décédé">Décédé</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div class="right">
+        <button class="btn btn-ghost" onclick="closeAddVihModal()">Annuler</button>
+        <button class="btn btn-primary" style="background:var(--vih);" onclick="submitAddVih()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const patientId = '{{ patient.id }}';
+
+// ── Helpers ──────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ── Modal Édition Patient ──────────────────────────────
+function openEditModal() {
+  document.getElementById('editOverlay').classList.add('open');
+}
+function closeEditModal() {
+  document.getElementById('editOverlay').classList.remove('open');
+}
+async function submitEdit() {
+  const nom = document.getElementById('editNom').value.trim();
+  if (!nom) { showToast('Le nom est obligatoire.'); return; }
+  const situation = document.getElementById('editSituationPenale').value;
+  if (!situation) { showToast('La situation pénale est obligatoire.'); return; }
+
+  const data = {
+    nom: nom,
+    prenoms: document.getElementById('editPrenoms').value.trim(),
+    date_naissance: document.getElementById('editDateNaissance').value || null,
+    age: document.getElementById('editAge').value || null,
+    sexe: document.getElementById('editSexe').value,
+    quartier: document.getElementById('editQuartier').value.trim(),
+    situation_penale: document.getElementById('editSituationPenale').value,
+    telephone: document.getElementById('editTelephone').value.trim(),
+    adresse: document.getElementById('editAdresse').value.trim(),
+    contact_nom: document.getElementById('editContactNom').value.trim(),
+    contact_tel: document.getElementById('editContactTel').value.trim(),
+  };
+
+  try {
+    const resp = await fetch('/patient/' + patientId + '/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closeEditModal();
+      showToast('Fiche patient mise à jour.');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal Contrôle TB ────────────────────────────────
+let currentCtrl = {};
+
+function openCtrlModal(key, date) {
+  currentCtrl = { key, date };
+  document.getElementById('ctrlTitle').textContent = 'Contrôle ' + key;
+  document.getElementById('ctrlSub').textContent = 'Date prévue : ' + format_date_fr(date);
+  document.getElementById('ctrlResultat').value = '';
+  document.getElementById('ctrlOverlay').classList.add('open');
+}
+
+function closeCtrlModal() {
+  document.getElementById('ctrlOverlay').classList.remove('open');
+}
+
+async function submitCtrl() {
+  const resultat = document.getElementById('ctrlResultat').value;
+  if (!resultat) { showToast('Veuillez sélectionner un résultat.'); return; }
+
+  try {
+    const resp = await fetch('/patient/' + patientId + '/ctrl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ controle: currentCtrl.key, resultat }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      closeCtrlModal();
+      showToast('Contrôle ' + currentCtrl.key + ' enregistré.');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (data.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal Statut ─────────────────────────────────────
+function openStatutModal() {
+  document.getElementById('nouveauStatut').value = '';
+  document.getElementById('statutMotif').value = '';
+  document.getElementById('libereFields').style.display = 'none';
+  document.getElementById('transfereFields').style.display = 'none';
+  document.getElementById('decedeFields').style.display = 'none';
+  document.getElementById('motifGeneralField').style.display = '';
+  document.getElementById('statutOverlay').classList.add('open');
+}
+
+function closeStatutModal() {
+  document.getElementById('statutOverlay').classList.remove('open');
+}
+
+document.getElementById('nouveauStatut').addEventListener('change', (e) => {
+  const val = e.target.value;
+  document.getElementById('libereFields').style.display = val === 'libere' ? '' : 'none';
+  document.getElementById('transfereFields').style.display = val === 'transfere' ? '' : 'none';
+  document.getElementById('decedeFields').style.display = val === 'decede' ? '' : 'none';
+  document.getElementById('motifGeneralField').style.display = (val === 'libere' || val === 'transfere' || val === 'decede') ? 'none' : '';
+});
+
+async function submitStatut() {
+  const nouveauStatut = document.getElementById('nouveauStatut').value;
+  if (!nouveauStatut) { showToast('Veuillez sélectionner un statut.'); return; }
+
+  const payload = { nouveau_statut: nouveauStatut };
+
+  if (nouveauStatut === 'libere') {
+    payload.telephone = document.getElementById('lib Telephone').value.trim();
+    payload.adresse = document.getElementById('libAdresse').value.trim();
+    payload.contact_nom = document.getElementById('libContactNom').value.trim();
+    payload.contact_tel = document.getElementById('libContactTel').value.trim();
+    payload.motif = document.getElementById('libStructure').value.trim();
+  } else if (nouveauStatut === 'transfere') {
+    payload.motif = document.getElementById('transfDestination').value.trim() +
+                    (document.getElementById('transfMotif').value.trim() ? ' — ' + document.getElementById('transfMotif').value.trim() : '');
+  } else if (nouveauStatut === 'decede') {
+    payload.motif = (document.getElementById('decesDate').value ? 'Date: ' + document.getElementById('decesDate').value + ' — ' : '') +
+                    (document.getElementById('decesCause').value || '');
+  } else {
+    payload.motif = document.getElementById('statutMotif').value.trim();
+  }
+
+  try {
+    const resp = await fetch('/patient/' + patientId + '/statut', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      closeStatutModal();
+      showToast('Statut mis à jour.');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (data.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal N° Laboratoire ────────────────────────────────────────
+function openLabIdModal() {
+  document.getElementById('labIdOverlay').classList.add('open');
+}
+function closeLabIdModal() {
+  document.getElementById('labIdOverlay').classList.remove('open');
+}
+async function submitLabId() {
+  const lab_id = document.getElementById('editLabId').value.trim();
+  try {
+    const resp = await fetch('/patient/' + patientId + '/tb/lab', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lab_id: lab_id }),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closeLabIdModal();
+      showToast('N° laboratoire mis à jour.');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal Poids ────────────────────────────────────────
+function openPoidsModal() {
+  document.getElementById('poidsOverlay').classList.add('open');
+}
+function closePoidsModal() {
+  document.getElementById('poidsOverlay').classList.remove('open');
+}
+async function submitPoids() {
+  const data = {
+    poids_m0: document.getElementById('editPoidsM0').value || null,
+    poids_m2: document.getElementById('editPoidsM2').value || null,
+    poids_m5: document.getElementById('editPoidsM5').value || null,
+    poids_m6: document.getElementById('editPoidsM6').value || null,
+  };
+  try {
+    const resp = await fetch('/patient/' + patientId + '/poids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closePoidsModal();
+      showToast('Poids mis à jour.');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal Contrôles ─────────────────────────────────
+function openCtrlsModal() {
+  document.getElementById('ctrlsOverlay').classList.add('open');
+}
+function closeCtrlsModal() {
+  document.getElementById('ctrlsOverlay').classList.remove('open');
+}
+async function submitCtrls() {
+  const fait_m2 = document.getElementById('editCtrlM2Resultat').value ? 1 : 0;
+  const fait_m5 = document.getElementById('editCtrlM5Resultat').value ? 1 : 0;
+  const fait_m6 = document.getElementById('editCtrlM6Resultat').value ? 1 : 0;
+  const data = {
+    ctrl_m2_date: document.getElementById('editCtrlM2Date').value || null,
+    ctrl_m2_fait: fait_m2,
+    ctrl_m2_resultat: document.getElementById('editCtrlM2Resultat').value,
+    ctrl_m5_date: document.getElementById('editCtrlM5Date').value || null,
+    ctrl_m5_fait: fait_m5,
+    ctrl_m5_resultat: document.getElementById('editCtrlM5Resultat').value,
+    ctrl_m6_date: document.getElementById('editCtrlM6Date').value || null,
+    ctrl_m6_fait: fait_m6,
+    ctrl_m6_resultat: document.getElementById('editCtrlM6Resultat').value,
+  };
+  try {
+    const resp = await fetch('/patient/' + patientId + '/tb/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closeCtrlsModal();
+      showToast('Contrôles mis à jour.');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal Suppression Patient ──────────────────────────
+function openDeleteModal() {
+  document.getElementById('deleteConfirmInput').value = '';
+  document.getElementById('deleteConfirmBtn').disabled = true;
+  document.getElementById('deleteOverlay').classList.add('open');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteOverlay').classList.remove('open');
+}
+
+document.getElementById('deleteConfirmInput').addEventListener('input', (e) => {
+  document.getElementById('deleteConfirmBtn').disabled = (e.target.value.trim() !== '{{ patient.id }}');
+});
+
+async function submitDelete() {
+  const confirmVal = document.getElementById('deleteConfirmInput').value.trim();
+  if (confirmVal !== '{{ patient.id }}') {
+    showToast('Veuillez taper l\'identifiant exact pour confirmer.');
+    return;
+  }
+
+  try {
+    const resp = await fetch('/patient/' + patientId + '/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await resp.json();
+    if (data.success) {
+      closeDeleteModal();
+      showToast('Patient supprimé.');
+      setTimeout(() => window.location.href = '/patients', 800);
+    } else {
+      showToast('Erreur : ' + (data.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Modal Ajouter suivi TB ──────────────────────────
+function openAddTbModal() {
+  document.getElementById('addTbOverlay').classList.add('open');
+}
+function closeAddTbModal() {
+  document.getElementById('addTbOverlay').classList.remove('open');
+}
+async function submitAddTb() {
+  const dateDebut = document.getElementById('addTbDateDebut').value;
+  const forme = document.getElementById('addTbForme').value;
+  const typeCas = document.getElementById('addTbTypeCas').value;
+  if (!dateDebut) { showToast('La date de début est requise.'); return; }
+  if (!forme) { showToast('La forme clinique est requise.'); return; }
+  if (!typeCas) { showToast('Le type de cas est requis.'); return; }
+
+  const data = {
+    lab_id: document.getElementById('addTbLabId').value.trim(),
+    date_debut_traitement: dateDebut,
+    forme_clinique: forme,
+    type_cas: typeCas,
+  };
+
+  try {
+    const resp = await fetch('/patient/' + patientId + '/add-tb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closeAddTbModal();
+      showToast('Suivi TB créé : ' + result.numero_registre);
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── VIH Code generation (client-side) ──────────────
+function generateVihCode(nom, prenoms, dateNaissance, age) {
+  let ddmm = '0101', yy = '00';
+  if (dateNaissance) {
+    const parts = dateNaissance.split('-');
+    ddmm = parts[2] + parts[1];
+    yy = parts[0].slice(2);
+  } else if (age) {
+    const year = new Date().getFullYear() - parseInt(age);
+    yy = String(year).slice(2);
+  }
+  const nomPart = (nom || 'XXX').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().slice(0, 3).padEnd(3, 'X');
+  const prenomsPart = (prenoms || 'XX').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().slice(0, 2).padEnd(2, 'X');
+  return ddmm + yy + nomPart + prenomsPart;
+}
+
+// ── Modal Ajouter suivi VIH ─────────────────────────
+function openAddVihModal() {
+  // Auto-preview the VIH code
+  const preview = generateVihCode('{{ patient.nom }}', '{{ patient.prenoms }}', '{{ patient.date_naissance }}', '{{ patient.age }}');
+  document.getElementById('addVihCodePreview').textContent = preview;
+  document.getElementById('addVihOverlay').classList.add('open');
+}
+function closeAddVihModal() {
+  document.getElementById('addVihOverlay').classList.remove('open');
+}
+async function submitAddVih() {
+  const dateDebut = document.getElementById('addVihDateDebut').value;
+  if (!dateDebut) { showToast('La date de début est requise.'); return; }
+
+  const data = {
+    code: document.getElementById('addVihCode').value.trim(),
+    date_debut_suivi: dateDebut,
+    observation: document.getElementById('addVihObservation').value,
+  };
+
+  try {
+    const resp = await fetch('/patient/' + patientId + '/add-vih', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      closeAddVihModal();
+      showToast('Suivi VIH créé : ' + result.numero_registre);
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Erreur : ' + (result.error || 'inconnue'));
+    }
+  } catch (err) {
+    showToast('Erreur de connexion.');
+  }
+}
+
+// ── Overlay close on click ──────────────────────────
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', (e) => { if (e.target === o) o.classList.remove('open'); });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+
+{% block title %}Guide d'utilisation — Suivi Patient{% endblock %}
+{% block topbar_title %}Guide d'utilisation{% endblock %}
+{% block topbar_sub %}Aide et tutoriel pour les utilisateurs{% endblock %}
+{% block topbar_action %}
+<button class="btn btn-ghost" onclick="printGuide()">
+  <svg class="icon" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><use href="#icon-printer"/></svg> Imprimer ce guide
+</button>
+{% endblock %}
+
+{% block content %}
+<style>
+  .accordion { margin-bottom: 10px; }
+  .accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+  }
+  .accordion-header:hover { background: var(--bg); }
+  .accordion-header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--navy-dark);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .accordion-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .accordion-arrow {
+    transition: transform 0.2s;
+    color: var(--muted);
+  }
+  .accordion.open .accordion-arrow { transform: rotate(180deg); }
+  .accordion-body {
+    display: none;
+    padding: 0 18px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .accordion.open .accordion-body { display: block; }
+  .accordion-body ol { padding-left: 20px; margin: 8px 0; }
+  .accordion-body li { margin-bottom: 6px; }
+  .accordion-body .step-title {
+    font-weight: 700;
+    color: var(--navy);
+    margin-top: 12px;
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+  .accordion-body code {
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+  }
+  .accordion-body .tip {
+    background: var(--blue-bg);
+    border-left: 3px solid var(--blue);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 12px;
+    color: var(--navy);
+  }
+  .accordion-body .warning {
+    background: #FFF3E0;
+    border-left: 3px solid var(--orange);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #5D4037;
+  }
+  @media print {
+    .accordion-body { display: block !important; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 8px; }
+    .accordion-header { border-radius: 10px 10px 0 0; background: #f5f5f5; }
+    .accordion-arrow { display: none; }
+    .topnav, .sidebar, .topbar-action, .print-note { display: none !important; }
+    .page-body { padding: 0 !important; }
+  }
+</style>
+
+<div class="print-note">
+  Pour enregistrer en PDF : choisissez <b>« Enregistrer au format PDF »</b> dans la fenêtre d'impression.
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 1 : Connexion ──────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-1">
+  <div class="accordion-header" onclick="toggleAcc('acc-1')">
+    <h3><span class="accordion-num">1</span> Se connecter et changer son mot de passe</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p class="step-title">Se connecter</p>
+    <ol>
+      <li>Ouvrez l'application dans votre navigateur.</li>
+      <li>Vous êtes redirigé vers la page de connexion.</li>
+      <li>Saisissez votre <strong>nom d'utilisateur</strong> et votre <strong>mot de passe</strong>.</li>
+      <li>Cliquez sur <strong>« Se connecter »</strong>.</li>
+    </ol>
+    <div class="tip">💡 Utilisateurs par défaut : <code>admin</code> / <code>admin123</code> (administrateur) ou <code>visiteur</code> / <code>visiteur123</code> (lecture seule).</div>
+
+    <p class="step-title">Changer son mot de passe</p>
+    <ol>
+      <li>Allez dans <strong>Paramètres</strong> (lien dans la barre du haut, admin uniquement).</li>
+      <li>Descendez à la section <strong>« Mon mot de passe »</strong>.</li>
+      <li>Saisissez votre mot de passe actuel, puis le nouveau mot de passe (minimum 6 caractères).</li>
+      <li>Confirmez le nouveau mot de passe.</li>
+      <li>Cliquez sur <strong>« Changer le mot de passe »</strong>.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 2 : Ajouter un patient ─────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-2">
+  <div class="accordion-header" onclick="toggleAcc('acc-2')">
+    <h3><span class="accordion-num">2</span> Ajouter un nouveau patient</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <ol>
+      <li>Allez dans la page <strong>Patients</strong> (lien dans la barre du haut).</li>
+      <li>Cliquez sur le bouton <strong>« + Nouveau patient »</strong> (en haut à droite).</li>
+      <li>Le wizard s'ouvre en 5 étapes :</li>
+    </ol>
+
+    <p class="step-title">Étape 1 — Identité</p>
+    <ol>
+      <li>Saisissez le <strong>Nom</strong> (obligatoire).</li>
+      <li>Saisissez les <strong>Prénoms</strong> (optionnel).</li>
+      <li>Renseignez la <strong>date de naissance</strong> OU l'<strong>âge</strong> (l'un des deux est obligatoire).</li>
+      <li>Sélectionnez le <strong>sexe</strong> (M ou F).</li>
+      <li>Saisissez le <strong>quartier</strong> (optionnel).</li>
+    </ol>
+
+    <p class="step-title">Étape 2 — Statut</p>
+    <ol>
+      <li>Le statut est pré-rempli à <strong>« Incarcéré »</strong> par défaut.</li>
+      <li>Sélectionnez la <strong>situation pénale</strong> (Condamné ou Prévenu) — obligatoire.</li>
+    </ol>
+
+    <p class="step-title">Étape 3 — Contact</p>
+    <ol>
+      <li>Si le patient est incarcéré, cette étape est optionnelle.</li>
+      <li>Si le patient est libéré ou transféré, le téléphone et l'adresse sont <strong>obligatoires</strong>.</li>
+    </ol>
+
+    <p class="step-title">Étape 4 — Programme</p>
+    <ol>
+      <li>Sélectionnez le programme : <strong>TB</strong> (Tuberculose) ou <strong>VIH</strong>.</li>
+      <li>Pour le TB : renseignez la date de début, la forme clinique (TPB+/TPB-/TEP) et le type de cas.</li>
+      <li>Pour le VIH : renseignez la date de début de suivi. Le code VIH est généré automatiquement.</li>
+    </ol>
+
+    <p class="step-title">Étape 5 — Résumé</p>
+    <ol>
+      <li>Vérifiez toutes les informations dans le résumé.</li>
+      <li>Cliquez sur <strong>« Enregistrer »</strong> pour créer le patient.</li>
+    </ol>
+
+    <div class="tip">💡 Le numéro de registre (ex : <code>TB-2026-001</code>) est généré automatiquement. Les dates de contrôle TB (M2/M5/M6) sont aussi calculées automatiquement depuis la date de début.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 3 : Ajouter suivi TB/VIH ───────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-3">
+  <div class="accordion-header" onclick="toggleAcc('acc-3')">
+    <h3><span class="accordion-num">3</span> Ajouter un suivi TB ou VIH à un patient existant</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p>Si un patient n'a pas encore de volet actif pour un programme, vous pouvez en ajouter un depuis sa fiche.</p>
+    <ol>
+      <li>Ouvrez la <strong>fiche du patient</strong> en cliquant sur son nom dans la liste.</li>
+      <li>Si le patient n'a pas de suivi TB actif, vous verrez un panneau <strong>« Aucun suivi TB actif »</strong> avec un bouton <strong>« + Ajouter un suivi TB »</strong>.</li>
+      <li>Cliquez dessus, renseignez la date de début, la forme clinique et le type de cas.</li>
+      <li>Cliquez sur <strong>« Enregistrer »</strong>.</li>
+    </ol>
+    <p>Pour le VIH, c'est la même démarche avec le bouton <strong>« + Ajouter un suivi VIH »</strong>.</p>
+
+    <div class="tip">💡 Le numéro de registre et le code VIH sont générés automatiquement.</div>
+    <div class="warning">⚠️ Un patient ne peut avoir qu'un seul volet TB actif et un seul volet VIH actif à la fois.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 4 : Contrôle TB ────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-4">
+  <div class="accordion-header" onclick="toggleAcc('acc-4')">
+    <h3><span class="accordion-num">4</span> Enregistrer un contrôle TB et lire la timeline</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p class="step-title">Enregistrer un contrôle</p>
+    <ol>
+      <li>Ouvrez la fiche du patient TB.</li>
+      <li>Dans la section <strong>« Suivi Tuberculose »</strong>, vous verrez les boutons <strong>« ✓ Marquer M2 fait »</strong>, <strong>« ✓ Marquer M5 fait »</strong> ou <strong>« ✓ Marquer M6 fait »</strong> pour les contrôles en attente.</li>
+      <li>Cliquez sur le bouton du contrôle concerné.</li>
+      <li>Sélectionnez le <strong>résultat</strong> du contrôle (Négatif, Positif ou Indéterminé).</li>
+      <li>Cliquez sur <strong>« Enregistrer »</strong>.</li>
+    </ol>
+
+    <p class="step-title">Lire la timeline</p>
+    <p>La timeline affiche 4 étapes :</p>
+    <ul>
+      <li><strong>M0</strong> : Début du traitement (toujours affiché).</li>
+      <li><strong>M2</strong> : Contrôle du 2e mois.</li>
+      <li><strong>M5</strong> : Contrôle du 5e mois.</li>
+      <li><strong>M6</strong> : Contrôle du 6e mois (fin de traitement).</li>
+    </ul>
+    <p>Un cercle <strong>vert avec ✓</strong> signifie que le contrôle a été fait. Un cercle <strong>gris</strong> signifie qu'il est en attente.</p>
+
+    <p class="step-title">Modifier les contrôles</p>
+    <ol>
+      <li>Cliquez sur <strong>« Modifier les contrôles »</strong> dans la section TB.</li>
+      <li>Vous pouvez modifier les dates prévues et les résultats de M2, M5 et M6.</li>
+      <li>Cliquez sur <strong>« Enregistrer »</strong>.</li>
+    </ol>
+
+    <div class="tip">💡 Les dates de contrôle sont calculées automatiquement (M2 = début + 2 mois, M5 = +5 mois, M6 = +6 mois), mais vous pouvez les modifier manuellement.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 5 : Changer le statut ──────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-5">
+  <div class="accordion-header" onclick="toggleAcc('acc-5')">
+    <h3><span class="accordion-num">5</span> Changer le statut d'un patient</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <ol>
+      <li>Ouvrez la fiche du patient.</li>
+      <li>Cliquez sur le bouton <strong>« Changer le statut »</strong> (dans l'en-tête, à côté du badge de statut).</li>
+      <li>Sélectionnez le nouveau statut dans la liste déroulante.</li>
+    </ol>
+
+    <p class="step-title">Selon le statut choisi</p>
+    <ul>
+      <li><strong>Libéré</strong> : Renseignez le téléphone, l'adresse, le contact et la structure de santé de référence.</li>
+      <li><strong>Transféré</strong> : Renseignez la structure de destination et le motif du transfert.</li>
+      <li><strong>Décédé</strong> : Renseignez la date du décès et la cause (si connue).</li>
+    </ul>
+    <ol start="4">
+      <li>Cliquez sur <strong>« Enregistrer »</strong>.</li>
+    </ol>
+
+    <div class="tip">💡 Le changement est automatiquement enregistré dans l'historique des statuts, visible en bas de la fiche patient.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 6 : Recherche et filtres ────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-6">
+  <div class="accordion-header" onclick="toggleAcc('acc-6')">
+    <h3><span class="accordion-num">6</span> Rechercher et filtrer la liste des patients</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p class="step-title">Recherche rapide</p>
+    <ol>
+      <li>Allez dans la page <strong>Patients</strong>.</li>
+      <li>Dans la barre de recherche, tapez un nom, prénom, numéro de registre, code VIH ou numéro de laboratoire.</li>
+      <li>La liste se met à jour automatiquement.</li>
+    </ol>
+
+    <p class="step-title">Filtres avancés</p>
+    <ol>
+      <li>Cliquez sur le bouton <strong>« Filtres »</strong> à côté de la barre de recherche.</li>
+      <li>Le panneau de filtres se déplie avec les options :</li>
+    </ol>
+    <ul>
+      <li><strong>Statut</strong> : Incarcéré, Libéré, Transféré, Décédé</li>
+      <li><strong>Programme</strong> : TB, VIH, les deux</li>
+      <li><strong>Tranche d'âge</strong> : &lt;18, 18-35, 35-60, 60+</li>
+      <li><strong>Sexe</strong> : Tous, M, F</li>
+      <li><strong>Quartier</strong></li>
+      <li><strong>Décision TB</strong> : En cours, Guéri, Terminé, Échec, Perdu de vue, Décès, Transféré</li>
+      <li><strong>Retards uniquement</strong> : contrôles TB en retard</li>
+      <li><strong>Période</strong> : date début traitement/suivi</li>
+    </ul>
+    <ol start="3">
+      <li>Sélectionnez les filtres souhaités et cliquez sur <strong>« Appliquer »</strong>.</li>
+      <li>Les filtres actifs apparaissent sous forme de chips sous la recherche. Cliquez sur <strong>×</strong> pour retirer un filtre.</li>
+    </ol>
+
+    <div class="tip">💡 Tous les filtres sont combinables (ET logique) et restent actifs même après avoir consulté un patient.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 7 : Imprimer la liste ──────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-7">
+  <div class="accordion-header" onclick="toggleAcc('acc-7')">
+    <h3><span class="accordion-num">7</span> Imprimer une liste de patients</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <ol>
+      <li>Allez dans la page <strong>Patients</strong>.</li>
+      <li>Appliquez les filtres souhaités (ex : tous les patients TB en cours).</li>
+      <li>Cliquez sur le bouton <strong>« Imprimer »</strong> (en haut à droite).</li>
+      <li>Si la liste contient des patients VIH, un mot de passe est demandé pour des raisons de confidentialité.</li>
+      <li>Une nouvelle fenêtre s'ouvre avec la version imprimable (noir &amp; blanc, format A4).</li>
+      <li>Dans la fenêtre d'impression du navigateur, choisissez <strong>« Enregistrer au format PDF »</strong> pour exporter en PDF.</li>
+    </ol>
+
+    <div class="tip">💡 Vous pouvez aussi imprimer la fiche détaillée d'un patient en cliquant sur <strong>« Imprimer »</strong> dans l'en-tête de sa fiche.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 8 : Rapport mensuel ────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-8">
+  <div class="accordion-header" onclick="toggleAcc('acc-8')">
+    <h3><span class="accordion-num">8</span> Consulter et exporter le rapport mensuel</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p class="step-title">Consulter le rapport</p>
+    <ol>
+      <li>Allez dans la page <strong>Rapports</strong> (lien dans la barre du haut).</li>
+      <li>Sélectionnez le <strong>mois</strong> et l'<strong>année</strong> du rapport souhaité.</li>
+      <li>Le rapport s'affiche automatiquement avec les statistiques TB et VIH du mois.</li>
+    </ol>
+
+    <p class="step-title">Ce que contient le rapport</p>
+    <ul>
+      <li>Statistiques TB : actifs, nouveaux cas, sorties, décès, transferts, répartition des issues.</li>
+      <li>Taux de réalisation des contrôles bactériologiques (faits / prévus).</li>
+      <li>Répartition par forme clinique et type de cas.</li>
+      <li>Statistiques VIH : actifs, nouveaux cas, sorties, décès.</li>
+      <li>Section démographique : répartition par âge, sexe, quartier.</li>
+    </ul>
+
+    <p class="step-title">Exporter en PDF</p>
+    <ol>
+      <li>Une fois le rapport affiché, cliquez sur <strong>« Imprimer le rapport »</strong>.</li>
+      <li>Choisissez <strong>« Enregistrer au format PDF »</strong> dans la fenêtre d'impression.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 9 : Sauvegarde ──────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-9">
+  <div class="accordion-header" onclick="toggleAcc('acc-9')">
+    <h3><span class="accordion-num">9</span> Faire une sauvegarde et l'exporter</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p class="step-title">Exporter les données</p>
+    <ol>
+      <li>Allez dans la page <strong>Sauvegarde</strong> (lien dans la barre du haut).</li>
+      <li>Cliquez sur <strong>« Exporter CSV »</strong> pour télécharger la liste des patients au format tableur (compatible Excel).</li>
+      <li>Cliquez sur <strong>« Exporter JSON »</strong> pour télécharger l'intégralité de la base (toutes les tables).</li>
+    </ol>
+
+    <p class="step-title">Importer des données (restauration)</p>
+    <ol>
+      <li>Allez dans la page <strong>Sauvegarde</strong>.</li>
+      <li>Cliquez sur <strong>« Choisir un fichier »</strong> dans la zone d'import JSON.</li>
+      <li>Sélectionnez un fichier JSON précédemment exporté.</li>
+      <li>Confirmez l'import en cliquant sur <strong>« Importer »</strong>.</li>
+    </ol>
+
+    <div class="warning">⚠️ L'import JSON remplace TOUTES les données existantes. Assurez-vous de faire une exportation avant d'importer.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 10 : Rôles ─────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-10">
+  <div class="accordion-header" onclick="toggleAcc('acc-10')">
+    <h3><span class="accordion-num">10</span> Comprendre les rôles (admin / user / lecture seule)</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p>Il existe trois niveaux d'accès dans l'application :</p>
+
+    <p class="step-title">Administrateur (admin)</p>
+    <ul>
+      <li>Accès complet à toutes les fonctionnalités.</li>
+      <li>Peut créer, modifier et supprimer des patients.</li>
+      <li>Peut gérer les utilisateurs (Paramètres → Gestion des utilisateurs).</li>
+      <li>Peut voir les noms des patients VIH et les révéler.</li>
+      <li>Peut accéder au journal d'audit.</li>
+      <li>Peut imprimer la liste même avec des patients VIH.</li>
+    </ul>
+
+    <p class="step-title">Utilisateur (user)</p>
+    <ul>
+      <li>Peut créer et modifier des patients.</li>
+      <li>Peut enregistrer des contrôles TB et changer les statuts.</li>
+      <li>Peut voir et révéler les noms des patients VIH.</li>
+      <li>Ne peut PAS supprimer de patients.</li>
+      <li>Ne peut PAS gérer les utilisateurs.</li>
+    </ul>
+
+    <p class="step-title">Lecture seule (readonly)</p>
+    <ul>
+      <li>Peut uniquement consulter les données.</li>
+      <li>Ne peut PAS créer, modifier ou supprimer de patients.</li>
+      <li>Ne peut PAS voir les noms des patients VIH (flou permanent).</li>
+      <li>Ne peut PAS imprimer si la liste contient des patients VIH.</li>
+    </ul>
+
+    <div class="tip">💡 Seul un administrateur peut créer de nouveaux utilisateurs ou modifier les rôles (via la page Paramètres).</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ── Section 11 : Mot de passe oublié ────────────── -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="accordion" id="acc-11">
+  <div class="accordion-header" onclick="toggleAcc('acc-11')">
+    <h3><span class="accordion-num">11</span> Mot de passe oublié — que faire</h3>
+    <svg class="icon accordion-arrow" style="width:18px;height:18px;"><use href="#icon-chevron-down"/></svg>
+  </div>
+  <div class="accordion-body">
+    <p>Si vous avez oublié votre mot de passe :</p>
+    <ol>
+      <li>Demandez à un <strong>administrateur</strong> de réinitialiser votre mot de passe.</li>
+      <li>L'administrateur doit aller dans <strong>Paramètres</strong> → section <strong>« Gestion des utilisateurs »</strong>.</li>
+      <li>Il clique sur <strong>« Réinitialiser »</strong> à côté de votre nom d'utilisateur.</li>
+      <li>Il saisit un nouveau mot de passe (minimum 6 caractères) et confirme.</li>
+    </ol>
+    <p>Vous pourrez ensuite vous connecter avec le nouveau mot de passe et le modifier vous-même via <strong>Paramètres</strong> → <strong>« Mon mot de passe »</strong>.</p>
+
+    <div class="warning">⚠️ Il n'y a pas de fonctionnalité de récupération par email. La réinitialisation doit être faite par un administrateur.</div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAcc(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+function printGuide() {
+  // Open all accordions before printing
+  document.querySelectorAll('.accordion').forEach(a => a.classList.add('open'));
+  window.print();
+}
+</script>
+{% endblock %}

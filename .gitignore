@@ -1,0 +1,32 @@
+# Base de données
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Sauvegardes
+*.db.bak*
+*.bak
+
+# Fichiers temporaires
+__pycache__/
+*.pyc
+*.pyo
+.server.pid
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Anciens fichiers de référence (gardés localement uniquement)
+07-2026_pvvih.html
+07-2026_SUIVI_TB.html
+
+# Exports anciens
+suivi_pvvih_*.csv
+suivi_pvvih_*.pdf
+suivi_pvvih_*.json
+suivi_tb_*.json
+
+# Cookies
+cookies*.txt
